@@ -1,0 +1,16 @@
+{
+  "name": "quave-alarm-agent",
+  "version": "0.1.0",
+  "lockfileVersion": 3,
+  "requires": true,
+  "packages": {
+    "": {
+      "name": "quave-alarm-agent",
+      "version": "0.1.0",
+      "license": "MIT",
+      "bin": {
+        "quave-alarm-agent": "scripts/fire-quave-alarm.mjs"
+      }
+    }
+  }
+}

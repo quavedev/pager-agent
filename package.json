@@ -19,6 +19,8 @@
     "skills/",
     "scripts/",
     "README.md",
+    "package-lock.json",
+    "npm-shrinkwrap.json",
     "openapi.json"
   ],
   "license": "MIT"
