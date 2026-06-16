@@ -60,8 +60,48 @@ Real page:
 QUAVE_ALARM_API_KEY="<your key>" \
   npx -y github:quavedev/quave-alarm-agent trigger \
   --message "Look at Codex: I need your decision to continue." \
-  --link "https://chatgpt.com/codex"
+  --codex-thread-id "<thread-id>"
 ```
+
+## Link vs AI conversation resume
+
+Use `--link` for the thing produced by the conversation: a PR, doc, checkout page, incident dashboard, Slack thread, etc. Use AI conversation resume fields when the button should return the user to Codex, Claude Code, Cursor, or another agent. Compatible Android/macOS clients show that as a separate **Resume AI conversation** action.
+
+Examples:
+
+```bash
+# Codex: tell compatible clients how to return to the Codex conversation.
+npx -y github:quavedev/quave-alarm-agent trigger \
+  --message "Look at Codex: I need your decision." \
+  --codex-thread-id "<thread-id>"
+
+# Claude Code: copy a resume command on macOS.
+npx -y github:quavedev/quave-alarm-agent trigger \
+  --message "Claude Code is blocked." \
+  --claude-session "<session-id>" \
+  --ai-cwd "$PWD"
+
+# Cursor: copy a resume command on macOS.
+npx -y github:quavedev/quave-alarm-agent trigger \
+  --message "Cursor agent needs you." \
+  --cursor-session "<session-id>" \
+  --ai-cwd "$PWD"
+
+# Result/action URL: separate from returning to the AI conversation.
+npx -y github:quavedev/quave-alarm-agent trigger \
+  --message "Review the PR that is ready." \
+  --link "https://github.com/example/repo/pull/123"
+```
+
+Advanced resume fields:
+
+- `--ai-resume-json '<json object>'`: send the full `aiConversationResume` object.
+- `--ai-provider codex|claude-code|cursor|other`
+- `--ai-conversation-id <id>` / `--ai-title <title>` / `--ai-label <button label>`
+- `--ai-resume-url <url>` with optional `--ai-platforms android,ios,macos,web`
+- `--ai-resume-command <command>` with optional `--ai-cwd <path>`
+- `--ai-resume-instructions <text>`
+- `edit <alarm-id> --clear-ai-conversation-resume` removes resume metadata.
 
 List, edit, and remove existing alarms:
 

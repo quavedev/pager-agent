@@ -3,7 +3,7 @@
   "info": {
     "title": "Quave Alarm API",
     "version": "1.0.0",
-    "description": "Create, list, update, and manage alarms for the authenticated user's registered devices."
+    "description": "Create, list, update, and manage alarms for the authenticated user's registered devices. Alarm payloads may include link for the result/action URL and aiConversationResume for returning to the AI conversation."
   },
   "servers": [
     {
@@ -79,7 +79,7 @@
         }
       },
       "post": {
-        "summary": "Create alarm",
+        "summary": "Create alarm, optionally with link and aiConversationResume metadata",
         "responses": {
           "201": {
             "description": "Alarm created"
@@ -89,7 +89,7 @@
     },
     "/api/alarms/{id}": {
       "patch": {
-        "summary": "Edit an alarm",
+        "summary": "Edit an alarm, link, or aiConversationResume metadata",
         "responses": {
           "200": {
             "description": "Alarm updated"

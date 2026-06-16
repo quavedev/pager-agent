@@ -63,6 +63,10 @@ function buildRequest(commandName, parsedArgs) {
     };
 
     copyIfPresent(payload, "link", parsedArgs.link);
+    const aiConversationResume = buildAiConversationResume(parsedArgs);
+    if (aiConversationResume) {
+      payload.aiConversationResume = aiConversationResume;
+    }
     copyIfPresent(payload, "deviceId", parsedArgs["device-id"]);
     copyIfPresent(payload, "scheduledAt", parsedArgs["scheduled-at"]);
     copyIfPresent(payload, "timeZone", parsedArgs["time-zone"]);
@@ -104,6 +108,10 @@ function buildRequest(commandName, parsedArgs) {
   copyIfPresent(payload, "body", parsedArgs.message || parsedArgs.body);
   copyIfPresent(payload, "severity", parsedArgs.severity);
   copyIfPresent(payload, "link", parsedArgs.link);
+  const aiConversationResume = buildAiConversationResume(parsedArgs);
+  if (aiConversationResume) {
+    payload.aiConversationResume = aiConversationResume;
+  }
   copyIfPresent(payload, "deviceId", parsedArgs["device-id"]);
   copyIfPresent(payload, "scheduledAt", parsedArgs["scheduled-at"]);
   copyIfPresent(payload, "timeZone", parsedArgs["time-zone"]);
@@ -112,6 +120,7 @@ function buildRequest(commandName, parsedArgs) {
   copyNumberIfPresent(payload, "delaySeconds", parsedArgs["delay-seconds"]);
   copyNumberIfPresent(payload, "ttlSeconds", parsedArgs["ttl-seconds"]);
   copyBooleanIfPresent(payload, "clearLink", parsedArgs["clear-link"]);
+  copyBooleanIfPresent(payload, "clearAiConversationResume", parsedArgs["clear-ai-conversation-resume"]);
   copyBooleanIfPresent(payload, "clearDeviceId", parsedArgs["clear-device-id"]);
 
   if (Object.keys(payload).length === 0) {
@@ -119,6 +128,127 @@ function buildRequest(commandName, parsedArgs) {
   }
 
   return { method: "PATCH", path: `/api/alarms/${encodedId}`, body: payload };
+}
+
+function buildAiConversationResume(parsedArgs) {
+  if (parsedArgs["ai-resume-json"]) {
+    try {
+      const parsed = JSON.parse(parsedArgs["ai-resume-json"]);
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        fail("--ai-resume-json must be a JSON object.");
+      }
+      return parsed;
+    } catch (error) {
+      fail(`--ai-resume-json must be valid JSON: ${error.message}`);
+    }
+  }
+
+  const targets = [];
+  let provider = parsedArgs["ai-provider"];
+  let conversationId = parsedArgs["ai-conversation-id"] || parsedArgs["ai-thread-id"] || parsedArgs["ai-session-id"];
+
+  if (parsedArgs["codex-thread-id"]) {
+    provider = provider || "codex";
+    conversationId = conversationId || parsedArgs["codex-thread-id"];
+    targets.push({
+      platforms: ["android", "ios", "web"],
+      kind: "url",
+      url: parsedArgs["codex-url"] || "https://chatgpt.com/codex",
+      label: "Open Codex"
+    });
+    targets.push({
+      platforms: ["macos"],
+      kind: "deeplink",
+      url: parsedArgs["codex-deeplink"] || `codex://threads/${encodeURIComponent(parsedArgs["codex-thread-id"])}`,
+      label: "Open Codex app",
+      compatibility: "Use when the local Codex app supports this thread route."
+    });
+  }
+
+  if (parsedArgs["claude-session"]) {
+    provider = provider || "claude-code";
+    conversationId = conversationId || parsedArgs["claude-session"];
+    const command = parsedArgs["claude-command"] || `claude --resume ${shellQuote(parsedArgs["claude-session"])}`;
+    targets.push(commandTarget(command, parsedArgs["ai-cwd"], "Copy Claude resume command"));
+  }
+
+  if (parsedArgs["claude-remote-url"]) {
+    provider = provider || "claude-code";
+    targets.push(urlTarget(parsedArgs["claude-remote-url"], "Open Claude conversation"));
+  }
+
+  if (parsedArgs["cursor-session"]) {
+    provider = provider || "cursor";
+    conversationId = conversationId || parsedArgs["cursor-session"];
+    const command = parsedArgs["cursor-command"] || `cursor-agent --resume ${shellQuote(parsedArgs["cursor-session"])}`;
+    targets.push(commandTarget(command, parsedArgs["ai-cwd"], "Copy Cursor resume command"));
+  }
+
+  if (parsedArgs["ai-resume-url"]) {
+    targets.push(urlTarget(parsedArgs["ai-resume-url"], parsedArgs["ai-resume-label"], parsedArgs["ai-platforms"]));
+  }
+
+  if (parsedArgs["ai-resume-command"]) {
+    targets.push(commandTarget(parsedArgs["ai-resume-command"], parsedArgs["ai-cwd"], parsedArgs["ai-resume-label"], parsedArgs["ai-platforms"] || "macos"));
+  }
+
+  if (parsedArgs["ai-resume-instructions"]) {
+    targets.push({
+      platforms: platformList(parsedArgs["ai-platforms"] || "android,ios,macos,web"),
+      kind: "instructions",
+      instructions: parsedArgs["ai-resume-instructions"],
+      label: parsedArgs["ai-resume-label"] || "Resume AI conversation"
+    });
+  }
+
+  const fallbackInstructions = parsedArgs["ai-fallback-instructions"];
+  const title = parsedArgs["ai-title"];
+  const label = parsedArgs["ai-label"];
+  if (!provider && !conversationId && !title && !label && !fallbackInstructions && targets.length === 0) {
+    return undefined;
+  }
+  return removeEmpty({
+    provider: provider || "other",
+    conversationId,
+    title,
+    label,
+    targets: targets.length ? targets : undefined,
+    fallbackInstructions
+  });
+}
+
+function urlTarget(url, label, platforms) {
+  return removeEmpty({
+    platforms: platformList(platforms || "android,ios,macos,web"),
+    kind: "url",
+    url,
+    label: label || "Open AI conversation"
+  });
+}
+
+function commandTarget(command, cwd, label, platforms = "macos") {
+  return removeEmpty({
+    platforms: platformList(platforms),
+    kind: "copyCommand",
+    command,
+    cwd,
+    label: label || "Copy resume command"
+  });
+}
+
+function platformList(value) {
+  return String(value || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function shellQuote(value) {
+  return `'${String(value).replaceAll("'", "'\\''")}'`;
+}
+
+function removeEmpty(value) {
+  return Object.fromEntries(Object.entries(value).filter(([, item]) => item !== undefined && item !== null && item !== ""));
 }
 
 function formatResponse(commandName, body) {
@@ -133,7 +263,8 @@ function formatResponse(commandName, body) {
         scheduledAt: alarm.scheduledAt,
         timeZone: alarm.timeZone,
         expiresAt: alarm.expiresAt,
-        removedAt: alarm.removedAt
+        removedAt: alarm.removedAt,
+        aiConversationResume: alarm.aiConversationResume
       })) : []
     };
   }
@@ -146,7 +277,8 @@ function formatResponse(commandName, body) {
     timeZone: body.alarm?.timeZone,
     expiresAt: body.alarm?.expiresAt,
     removedAt: body.alarm?.removedAt,
-    link: body.alarm?.link
+    link: body.alarm?.link,
+    aiConversationResume: body.alarm?.aiConversationResume
   };
 }
 
