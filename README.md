@@ -63,6 +63,22 @@ QUAVE_PAGER_API_KEY="<your key>" \
   --codex-thread-id "<thread-id>"
 ```
 
+## Automatic paging (hooks)
+
+The skill above pages on request, but a skill is **discretionary** — the agent has to decide
+to call it, so it will not reliably page you on its own. For automatic paging when a task
+finishes or the agent gets blocked, wire Quave Pager into your agent's **deterministic
+notification hook**.
+
+For Claude Code, configure `Stop` and `Notification` hooks in `settings.json` so every
+finished turn and every input prompt fires a page. Full copy-paste setup, including where the
+config lives for local vs. web sessions:
+
+- [docs/claude-code-hooks.md](docs/claude-code-hooks.md)
+
+Other agents follow the same pattern (e.g. point the Codex `notify` program in
+`~/.codex/config.toml` at `npx -y github:quavedev/pager-agent trigger`).
+
 ## Link vs AI conversation resume
 
 Use `--link` for the thing produced by the conversation: a PR, doc, checkout page, incident dashboard, Slack thread, etc. Use AI conversation resume fields when the button should return the user to Codex, Claude Code, Cursor, or another agent. Compatible Android/macOS clients show that as a separate **Resume AI conversation** action.

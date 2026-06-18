@@ -18,6 +18,7 @@
     ".codex-plugin/",
     "skills/",
     "scripts/",
+    "docs/",
     "README.md",
     "package-lock.json",
     "npm-shrinkwrap.json",

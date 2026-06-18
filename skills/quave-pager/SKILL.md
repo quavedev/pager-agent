@@ -9,6 +9,15 @@ Use Quave Pager only when the user explicitly asks you to page them, or when you
 
 Do not use this for routine progress updates, success notifications, or questions you can continue without.
 
+## Reliable automatic paging
+
+Calling this skill is discretionary, so it will not reliably page the user every time a task
+finishes or you get blocked. If the user wants dependable automatic paging (for example, "page
+me whenever you're done or need me"), set it up through a **deterministic notification hook**
+instead of relying on this skill. For Claude Code, that means `Stop` and `Notification` hooks in
+`settings.json`. See `docs/claude-code-hooks.md` in the pager-agent repo
+(https://github.com/quavedev/pager-agent/blob/main/docs/claude-code-hooks.md) for copy-paste setup.
+
 ## Setup
 
 Use the user's API key from `QUAVE_PAGER_API_KEY`. If it is missing, ask the user to create or rotate a key in the Quave Pager Android or macOS app and provide it through an environment variable or approved secret store. Never paste the key into files, commits, URLs, command arguments, or chat logs.
