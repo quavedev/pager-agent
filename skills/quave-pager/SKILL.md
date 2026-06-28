@@ -9,15 +9,6 @@ Use Quave Pager only when the user explicitly asks you to page them, or when you
 
 Do not use this for routine progress updates, success notifications, or questions you can continue without.
 
-## Reliable automatic paging
-
-Calling this skill is discretionary, so it will not reliably page the user every time a task
-finishes or you get blocked. If the user wants dependable automatic paging (for example, "page
-me whenever you're done or need me"), set it up through a **deterministic notification hook**
-instead of relying on this skill. For Claude Code, that means `Stop` and `Notification` hooks in
-`settings.json`. See `docs/claude-code-hooks.md` in the pager-agent repo
-(https://github.com/quavedev/pager-agent/blob/main/docs/claude-code-hooks.md) for copy-paste setup.
-
 ## Setup
 
 Use the user's API key from `QUAVE_PAGER_API_KEY`. If it is missing, ask the user to create or rotate a key in the Quave Pager Android or macOS app and provide it through an environment variable or approved secret store. Never paste the key into files, commits, URLs, command arguments, or chat logs.
@@ -35,7 +26,7 @@ Before the first real page, use the CLI dry-run and inspect the request. This do
 ```bash
 npx -y github:quavedev/pager-agent trigger \
   --message "Look at Codex: I need your decision to continue." \
-  --codex-thread-id "<thread-id>" \
+  --codex-thread-id "${CODEX_THREAD_ID:-<thread-id>}" \
   --dry-run
 ```
 
@@ -45,15 +36,17 @@ Use a short message that says where the user should look and what is blocked.
 
 `--link` and AI conversation resume are different:
 
-- Use `--link` for the result/action URL from the conversation: a PR, document, checkout page, incident dashboard, Slack thread, etc.
+- Use `--link` only for the result/action URL from the conversation: a PR, document, checkout page, incident dashboard, Slack thread, etc. It must be `http://` or `https://`.
 - Use AI conversation resume fields when the alarm should return the user to Codex, Claude Code, Cursor, or another agent. Compatible Android/macOS clients show this as a separate "Resume AI conversation" action.
+- Do not put `codex://...` in `--link`. Codex deep links belong in AI conversation resume, preferably via `--codex-thread-id`. The CLI accepts `--link codex://threads/<thread-id>` only as a compatibility alias and converts it into AI resume metadata.
 
 Preferred CLI examples:
 
 ```bash
+# Codex Desktop exposes the current thread id in CODEX_THREAD_ID.
 npx -y github:quavedev/pager-agent trigger \
   --message "Look at Codex: I need your decision to continue." \
-  --codex-thread-id "<thread-id>"
+  --codex-thread-id "${CODEX_THREAD_ID:-<thread-id>}"
 
 npx -y github:quavedev/pager-agent trigger \
   --message "Claude Code is blocked." \
@@ -108,13 +101,26 @@ Do not combine `delaySeconds` and `scheduledAt`.
 
 AI resume CLI flags:
 
-- `--codex-thread-id <thread-id>`: creates Codex Android/web URL and macOS deeplink resume targets.
+- `--codex-thread-id <thread-id>`: creates Codex Android/web URL and macOS `codex://threads/<thread-id>` deeplink resume targets. In Codex Desktop, prefer `${CODEX_THREAD_ID}` when set. If the thread id is not known, do not invent one.
+- `--codex-deeplink codex://threads/<thread-id>`: explicit Codex app deeplink target.
 - `--claude-session <session-id>`: creates a macOS copy-command target using `claude --resume`.
 - `--cursor-session <session-id>`: creates a macOS copy-command target using `cursor-agent --resume`.
 - `--ai-cwd <path>`: attach the working directory to copy-command targets.
 - `--ai-resume-json '<json object>'`: send an explicit `aiConversationResume` object.
 - `--ai-resume-url <url>` / `--ai-resume-command <command>` / `--ai-resume-instructions <text>`: generic targets.
 - `--ai-platforms android,ios,macos,web`: override generic target device compatibility.
+
+## Why Codex Deep Links Can Be Missing
+
+If a Codex page only opens the generic Codex screen, the alarm probably used `--link https://chatgpt.com/codex` or omitted AI resume metadata. If a `codex://threads/<thread-id>` value was sent through `link`, older instructions also caused the API to reject it because `link` is intentionally `http(s)` only. The reliable pattern is:
+
+```bash
+npx -y github:quavedev/pager-agent trigger \
+  --message "Look at Codex: the work is done." \
+  --codex-thread-id "${CODEX_THREAD_ID:-<thread-id>}"
+```
+
+Codex currently has a known macOS deep link (`codex://threads/<thread-id>`). Claude Code and Cursor do not have a verified stable conversation deeplink in this package, so use `--claude-session` or `--cursor-session` to provide a copyable resume command plus `--ai-cwd`.
 
 ## Inspect, Edit, And Remove Alarms
 

@@ -57,31 +57,30 @@ npx -y github:quavedev/pager-agent trigger --dry-run --message "Quave Pager setu
 Real page:
 
 ```bash
-QUAVE_PAGER_API_KEY="<your key>" \
-  npx -y github:quavedev/pager-agent trigger \
+npx -y github:quavedev/pager-agent trigger \
   --message "Look at Codex: I need your decision to continue." \
-  --codex-thread-id "<thread-id>"
+  --codex-thread-id "${CODEX_THREAD_ID:-<thread-id>}"
 ```
 
 ## Automatic paging (hooks)
 
-The skill above pages on request, but a skill is **discretionary** — the agent has to decide
-to call it, so it will not reliably page you on its own. For automatic paging when a task
-finishes or the agent gets blocked, wire Quave Pager into your agent's **deterministic
-notification hook**.
+The skill above pages on request, but a skill is **discretionary** — the agent has to decide to call it, so it will not reliably page you on its own. For automatic paging when a task finishes or the agent gets blocked, wire Quave Pager into your agent's deterministic notification hook.
 
-For Claude Code, configure `Stop` and `Notification` hooks in `settings.json` so every
-finished turn and every input prompt fires a page. Full copy-paste setup, including where the
-config lives for local vs. web sessions:
+For Claude Code, configure `Stop` and `Notification` hooks in `settings.json` so finished turns and input prompts fire a page with `aiConversationResume` metadata. Full copy-paste setup, including where the config lives for local vs. web sessions:
 
 - [docs/claude-code-hooks.md](docs/claude-code-hooks.md)
 
-Other agents follow the same pattern (e.g. point the Codex `notify` program in
-`~/.codex/config.toml` at `npx -y github:quavedev/pager-agent trigger`).
+Other agents follow the same pattern. Codex Desktop exposes `CODEX_THREAD_ID`; hooks or notify commands should call `npx -y github:quavedev/pager-agent trigger --codex-thread-id "$CODEX_THREAD_ID"` instead of passing `codex://...` through `--link`. Cursor should use the copy-command resume pattern (`--cursor-session ... --ai-cwd "$PWD"`) until a stable Cursor conversation deeplink is verified.
 
 ## Link vs AI conversation resume
 
-Use `--link` for the thing produced by the conversation: a PR, doc, checkout page, incident dashboard, Slack thread, etc. Use AI conversation resume fields when the button should return the user to Codex, Claude Code, Cursor, or another agent. Compatible Android/macOS clients show that as a separate **Resume AI conversation** action.
+Use `--link` for the thing produced by the conversation: a PR, doc, checkout page, incident dashboard, Slack thread, etc. `--link` is intentionally `http://` or `https://` only.
+
+Use AI conversation resume fields when the button should return the user to Codex, Claude Code, Cursor, or another agent. Compatible Android/macOS clients show that as a separate **Resume AI conversation** action.
+
+Codex deep links such as `codex://threads/<thread-id>` belong in AI conversation resume, not in `link`. Prefer `--codex-thread-id "${CODEX_THREAD_ID:-<thread-id>}"` in Codex Desktop. The CLI accepts `--link codex://threads/<thread-id>` only as a compatibility alias and converts it to AI resume metadata.
+
+If the agent does not know the thread/session id, do not invent one; send a generic resume URL/instruction instead.
 
 Examples:
 
@@ -89,7 +88,7 @@ Examples:
 # Codex: tell compatible clients how to return to the Codex conversation.
 npx -y github:quavedev/pager-agent trigger \
   --message "Look at Codex: I need your decision." \
-  --codex-thread-id "<thread-id>"
+  --codex-thread-id "${CODEX_THREAD_ID:-<thread-id>}"
 
 # Claude Code: copy a resume command on macOS.
 npx -y github:quavedev/pager-agent trigger \
@@ -114,10 +113,13 @@ Advanced resume fields:
 - `--ai-resume-json '<json object>'`: send the full `aiConversationResume` object.
 - `--ai-provider codex|claude-code|cursor|other`
 - `--ai-conversation-id <id>` / `--ai-title <title>` / `--ai-label <button label>`
+- `--codex-thread-id <thread-id>` / `--codex-deeplink codex://threads/<thread-id>`
 - `--ai-resume-url <url>` with optional `--ai-platforms android,ios,macos,web`
 - `--ai-resume-command <command>` with optional `--ai-cwd <path>`
 - `--ai-resume-instructions <text>`
 - `edit <alarm-id> --clear-ai-conversation-resume` removes resume metadata.
+
+Claude Code and Cursor do not have a verified stable conversation deeplink in this package today. Use `--claude-session` or `--cursor-session` to provide a copyable resume command plus `--ai-cwd`.
 
 List, edit, and remove existing alarms:
 

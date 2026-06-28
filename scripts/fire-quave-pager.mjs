@@ -62,7 +62,7 @@ function buildRequest(commandName, parsedArgs) {
       severity: parsedArgs.severity || "critical"
     };
 
-    copyIfPresent(payload, "link", parsedArgs.link);
+    copyLinkIfPresent(payload, parsedArgs.link);
     const aiConversationResume = buildAiConversationResume(parsedArgs);
     if (aiConversationResume) {
       payload.aiConversationResume = aiConversationResume;
@@ -107,7 +107,7 @@ function buildRequest(commandName, parsedArgs) {
   copyIfPresent(payload, "title", parsedArgs.title);
   copyIfPresent(payload, "body", parsedArgs.message || parsedArgs.body);
   copyIfPresent(payload, "severity", parsedArgs.severity);
-  copyIfPresent(payload, "link", parsedArgs.link);
+  copyLinkIfPresent(payload, parsedArgs.link);
   const aiConversationResume = buildAiConversationResume(parsedArgs);
   if (aiConversationResume) {
     payload.aiConversationResume = aiConversationResume;
@@ -146,10 +146,14 @@ function buildAiConversationResume(parsedArgs) {
   const targets = [];
   let provider = parsedArgs["ai-provider"];
   let conversationId = parsedArgs["ai-conversation-id"] || parsedArgs["ai-thread-id"] || parsedArgs["ai-session-id"];
+  const codexDeepLink = parsedArgs["codex-deeplink"]
+    ? parseCodexThreadDeeplink(parsedArgs["codex-deeplink"], { strict: true })
+    : parseCodexThreadDeeplink(parsedArgs.link);
 
-  if (parsedArgs["codex-thread-id"]) {
+  if (parsedArgs["codex-thread-id"] || codexDeepLink) {
     provider = provider || "codex";
-    conversationId = conversationId || parsedArgs["codex-thread-id"];
+    const codexThreadId = parsedArgs["codex-thread-id"] || codexDeepLink.threadId;
+    conversationId = conversationId || codexThreadId;
     targets.push({
       platforms: ["android", "ios", "web"],
       kind: "url",
@@ -159,7 +163,7 @@ function buildAiConversationResume(parsedArgs) {
     targets.push({
       platforms: ["macos"],
       kind: "deeplink",
-      url: parsedArgs["codex-deeplink"] || `codex://threads/${encodeURIComponent(parsedArgs["codex-thread-id"])}`,
+      url: parsedArgs["codex-deeplink"] || codexDeepLink?.url || `codex://threads/${encodeURIComponent(codexThreadId)}`,
       label: "Open Codex app",
       compatibility: "Use when the local Codex app supports this thread route."
     });
@@ -249,6 +253,59 @@ function shellQuote(value) {
 
 function removeEmpty(value) {
   return Object.fromEntries(Object.entries(value).filter(([, item]) => item !== undefined && item !== null && item !== ""));
+}
+
+function parseCodexThreadDeeplink(value, { strict = false } = {}) {
+  const raw = typeof value === "string" ? value.trim() : "";
+  if (!raw) {
+    return undefined;
+  }
+  let url;
+  try {
+    url = new URL(raw);
+  } catch {
+    if (strict) {
+      fail("Invalid Codex deeplink. Use codex://threads/<thread-id> or --codex-thread-id <thread-id>.");
+    }
+    return undefined;
+  }
+  if (url.protocol !== "codex:") {
+    if (strict) {
+      fail("Invalid Codex deeplink. Use codex://threads/<thread-id> or --codex-thread-id <thread-id>.");
+    }
+    return undefined;
+  }
+  const segments = [url.hostname, ...url.pathname.split("/")].filter(Boolean);
+  if (segments[0] !== "threads" || !segments[1]) {
+    fail("Unsupported Codex deeplink. Use codex://threads/<thread-id> or --codex-thread-id <thread-id>.");
+  }
+  return {
+    threadId: decodeURIComponent(segments[1]),
+    url: raw
+  };
+}
+
+function copyLinkIfPresent(target, value) {
+  const link = typeof value === "string" ? value.trim() : "";
+  if (!link) {
+    return;
+  }
+  if (parseCodexThreadDeeplink(link)) {
+    return;
+  }
+  target.link = normalizeHttpLink(link);
+}
+
+function normalizeHttpLink(value) {
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "https:" && url.protocol !== "http:") {
+      throw new Error("unsupported_protocol");
+    }
+    return url.toString();
+  } catch {
+    fail("--link must be a valid http:// or https:// result/action URL. For Codex deep links use --codex-thread-id <thread-id> or --codex-deeplink codex://threads/<thread-id>.");
+  }
 }
 
 function formatResponse(commandName, body) {

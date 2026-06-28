@@ -75,6 +75,9 @@ for `Notification`), and POSTs an alarm to `https://pager.quave.ai/api/alarms`. 
 `aiConversationResume` block gives the phone/Mac a **Resume Claude Code** button that runs
 `claude --resume <session-id>` in the original working directory.
 
+Claude Code does not have a verified stable conversation deeplink in this package today, so
+the hook uses a copyable resume command instead of a custom URL scheme.
+
 Requires `jq` and `curl` on PATH (both are standard in Claude Code environments).
 
 ## 3. Reload and verify
@@ -110,5 +113,10 @@ Requires `jq` and `curl` on PATH (both are standard in Claude Code environments)
 The same principle applies to any agent that exposes a deterministic notification hook —
 configure that hook to call the Quave Pager CLI or API instead of relying on the skill. For
 example, Codex runs a `notify` program (configured in `~/.codex/config.toml`) on events such
-as turn completion; point it at `npx -y github:quavedev/pager-agent trigger` with a
-`--codex-thread-id` resume target.
+as turn completion. Codex Desktop exposes `CODEX_THREAD_ID`; point the hook at
+`npx -y github:quavedev/pager-agent trigger --codex-thread-id "$CODEX_THREAD_ID"` so
+Quave Pager receives `codex://threads/<thread-id>` as AI resume metadata. Do not send
+`codex://...` through `--link`; `--link` is for `http(s)` result/action URLs.
+
+Cursor should follow the same copy-command approach as Claude Code until a stable Cursor
+conversation deeplink is verified: use `--cursor-session <session-id> --ai-cwd "$PWD"`.
