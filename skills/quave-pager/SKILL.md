@@ -89,7 +89,8 @@ Useful options:
 
 - `body`: required message.
 - `title`: defaults to `Quave Pager`.
-- `severity`: `info`, `warning`, or `critical`; defaults to `critical`.
+- `alarmType` / `alarmTypeId`: choose a user-controlled Alarm Type by name, key, or id. Overrides `severity` (severity is derived from the type). See "Alarm Types" below.
+- `severity`: `info`, `warning`, or `critical`; defaults to `critical`. Legacy field kept for compatibility; when no alarm type is given it maps to the matching default type (`critical`→Critical, `warning`→Regular, `info`→Info).
 - `link`: optional `http://` or `https://` result/action destination.
 - `aiConversationResume`: optional object for returning to Codex, Claude Code, Cursor, or another AI conversation.
 - `delaySeconds`: relative scheduling.
@@ -164,3 +165,31 @@ curl -fsS -X POST https://pager.quave.ai/api/alarms/<alarm-id>/snooze \
   -H "Content-Type: application/json" \
   -d '{"delaySeconds":600}'
 ```
+
+## Alarm Types
+
+Prefer `alarmType` / `alarmTypeId` for new automations instead of choosing only a legacy `severity`.
+Default types are `Critical`, `Regular`, and `Info`; users can add or rename types later.
+
+```bash
+npx -y github:quavedev/pager-agent alarm-types list
+npx -y github:quavedev/pager-agent alarm-types create --name "Family" --severity warning
+npx -y github:quavedev/pager-agent alarm-types edit <alarm-type-id> --name "Family urgent" --severity critical
+npx -y github:quavedev/pager-agent alarm-types remove <alarm-type-id>
+
+npx -y github:quavedev/pager-agent trigger \
+  --alarm-type Regular \
+  --message "Review the PR when you can."
+```
+
+Use `severity` only as backward-compatible loudness metadata (`critical`, `warning`, or `info`). When no alarm type is supplied, the API maps legacy severities to the matching default type: `critical` → `Critical`, `warning` → `Regular`, `info` → `Info`.
+
+## Response Pattern
+
+After paging the user, report only:
+
+- that a Quave Pager was created;
+- the alarm ID and expiry/scheduled time if useful;
+- the reason/message sent.
+
+Never include the API key or raw secret source in the final answer.

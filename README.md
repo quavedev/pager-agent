@@ -62,6 +62,14 @@ npx -y github:quavedev/pager-agent trigger \
   --codex-thread-id "${CODEX_THREAD_ID:-<thread-id>}"
 ```
 
+Optional Alarm Type:
+
+```bash
+npx -y github:quavedev/pager-agent trigger \
+  --alarm-type Regular \
+  --message "Review this when you can."
+```
+
 ## Automatic paging (hooks)
 
 The skill above pages on request, but a skill is **discretionary** — the agent has to decide to call it, so it will not reliably page you on its own. For automatic paging when a task finishes or the agent gets blocked, wire Quave Pager into your agent's deterministic notification hook.
@@ -133,5 +141,16 @@ npx -y github:quavedev/pager-agent remove <alarm-id>
 ```
 
 Use `cancel`, `dismiss`, or `snooze` when you want lifecycle history instead of removal.
+
+## Alarm Types
+
+Alarm Types are user-controlled categories for choosing which receiver should ring. New users start with `Critical`, `Regular`, and `Info`; agents should prefer `--alarm-type` or `--alarm-type-id` for new alarms. Legacy `--severity critical|warning|info` still works and maps to the default types.
+
+```bash
+npx -y github:quavedev/pager-agent alarm-types list
+npx -y github:quavedev/pager-agent alarm-types create --name "Family" --severity warning
+npx -y github:quavedev/pager-agent alarm-types edit <alarm-type-id> --name "Family urgent" --severity critical
+npx -y github:quavedev/pager-agent alarm-types remove <alarm-type-id>
+```
 
 Never commit, log, or paste API keys into chat, URLs, or command arguments.

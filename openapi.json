@@ -174,6 +174,75 @@
         }
       }
     },
+    "/api/alarm-types": {
+      "get": {
+        "summary": "List user alarm types",
+        "responses": {
+          "200": {
+            "description": "Alarm type list"
+          }
+        }
+      },
+      "post": {
+        "summary": "Create an alarm type",
+        "responses": {
+          "201": {
+            "description": "Alarm type created"
+          },
+          "400": {
+            "description": "Invalid alarm type"
+          }
+        }
+      }
+    },
+    "/api/alarm-types/{id}": {
+      "patch": {
+        "summary": "Edit an alarm type",
+        "responses": {
+          "200": {
+            "description": "Alarm type updated"
+          },
+          "404": {
+            "description": "Alarm type not found"
+          }
+        }
+      },
+      "post": {
+        "summary": "Edit an alarm type for clients where PATCH is awkward",
+        "responses": {
+          "200": {
+            "description": "Alarm type updated"
+          },
+          "404": {
+            "description": "Alarm type not found"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Logically remove an alarm type",
+        "responses": {
+          "200": {
+            "description": "Alarm type removed"
+          },
+          "404": {
+            "description": "Alarm type not found"
+          }
+        }
+      }
+    },
+    "/api/alarm-types/{id}/remove": {
+      "post": {
+        "summary": "Logically remove an alarm type for clients where DELETE is awkward",
+        "responses": {
+          "200": {
+            "description": "Alarm type removed"
+          },
+          "404": {
+            "description": "Alarm type not found"
+          }
+        }
+      }
+    },
     "/api/api-keys": {
       "get": {
         "summary": "List API keys",
@@ -212,12 +281,33 @@
         }
       }
     },
-    "/api/devices": {
+    "/api/delivery": {
       "get": {
-        "summary": "List registered devices and their platform metadata",
+        "summary": "Read account delivery mode and registered devices",
         "responses": {
           "200": {
-            "description": "Device list"
+            "description": "Delivery settings and device list"
+          }
+        }
+      },
+      "post": {
+        "summary": "Update account delivery mode",
+        "responses": {
+          "200": {
+            "description": "Delivery settings updated"
+          },
+          "400": {
+            "description": "Invalid delivery settings"
+          }
+        }
+      }
+    },
+    "/api/devices": {
+      "get": {
+        "summary": "List registered devices and current delivery settings",
+        "responses": {
+          "200": {
+            "description": "Device list and delivery settings"
           }
         }
       }
@@ -234,7 +324,7 @@
     },
     "/api/devices/{deviceId}": {
       "patch": {
-        "summary": "Update device metadata, priority, or enabled state",
+        "summary": "Update device metadata, priority, or alarm-delivery state",
         "responses": {
           "200": {
             "description": "Device updated"
@@ -249,6 +339,82 @@
         "responses": {
           "200": {
             "description": "Device updated"
+          },
+          "404": {
+            "description": "Device not found"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Logically remove device",
+        "responses": {
+          "200": {
+            "description": "Device removed"
+          },
+          "404": {
+            "description": "Device not found"
+          }
+        }
+      }
+    },
+    "/api/devices/{deviceId}/remove": {
+      "post": {
+        "summary": "Logically remove device",
+        "responses": {
+          "200": {
+            "description": "Device removed"
+          },
+          "404": {
+            "description": "Device not found"
+          }
+        }
+      }
+    },
+    "/api/devices/{deviceId}/ringing": {
+      "post": {
+        "summary": "Report or clear the alarm currently ringing on a device",
+        "responses": {
+          "200": {
+            "description": "Device ringing state updated"
+          },
+          "404": {
+            "description": "Device not found"
+          }
+        }
+      }
+    },
+    "/api/devices/{deviceId}/alarm-types/{typeId}": {
+      "post": {
+        "summary": "Pause or resume one alarm type on one device",
+        "responses": {
+          "200": {
+            "description": "Device alarm-type state updated"
+          },
+          "404": {
+            "description": "Device not found"
+          }
+        }
+      }
+    },
+    "/api/devices/{deviceId}/alarms/{alarmId}/dismiss": {
+      "post": {
+        "summary": "Dismiss one alarm on one specific device only",
+        "responses": {
+          "200": {
+            "description": "Target device receives a stop command"
+          },
+          "404": {
+            "description": "Device or alarm not found"
+          }
+        }
+      }
+    },
+    "/api/devices/{deviceId}/skipped-during-pause/ack": {
+      "post": {
+        "summary": "Mark skipped-during-pause alarms seen for a device",
+        "responses": {
+          "200": {
+            "description": "Skipped alarms acknowledged and moved to history"
           },
           "404": {
             "description": "Device not found"

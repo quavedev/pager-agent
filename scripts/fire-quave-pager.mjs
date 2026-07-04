@@ -3,9 +3,9 @@
 const args = parseArgs(process.argv.slice(2));
 const command = args._[0] || "trigger";
 
-const supportedCommands = new Set(["trigger", "list", "edit", "remove", "cancel", "dismiss", "snooze"]);
+const supportedCommands = new Set(["trigger", "list", "edit", "remove", "cancel", "dismiss", "snooze", "alarm-types"]);
 if (!supportedCommands.has(command)) {
-  fail(`Unsupported command: ${command}. Use trigger, list, edit, remove, cancel, dismiss, or snooze.`);
+  fail(`Unsupported command: ${command}. Use trigger, list, edit, remove, cancel, dismiss, snooze, or alarm-types.`);
 }
 
 if (args["delay-seconds"] && args["scheduled-at"]) {
@@ -55,12 +55,18 @@ if (!response.ok) {
 console.log(JSON.stringify(formatResponse(command, body), null, 2));
 
 function buildRequest(commandName, parsedArgs) {
+  if (commandName === "alarm-types") {
+    return buildAlarmTypesRequest(parsedArgs);
+  }
+
   if (commandName === "trigger") {
     const payload = {
       title: parsedArgs.title || "Quave Pager",
       body: parsedArgs.message || parsedArgs.body,
       severity: parsedArgs.severity || "critical"
     };
+    copyIfPresent(payload, "alarmTypeId", parsedArgs["alarm-type-id"]);
+    copyIfPresent(payload, "alarmType", parsedArgs["alarm-type"]);
 
     copyLinkIfPresent(payload, parsedArgs.link);
     const aiConversationResume = buildAiConversationResume(parsedArgs);
@@ -107,6 +113,8 @@ function buildRequest(commandName, parsedArgs) {
   copyIfPresent(payload, "title", parsedArgs.title);
   copyIfPresent(payload, "body", parsedArgs.message || parsedArgs.body);
   copyIfPresent(payload, "severity", parsedArgs.severity);
+  copyIfPresent(payload, "alarmTypeId", parsedArgs["alarm-type-id"]);
+  copyIfPresent(payload, "alarmType", parsedArgs["alarm-type"]);
   copyLinkIfPresent(payload, parsedArgs.link);
   const aiConversationResume = buildAiConversationResume(parsedArgs);
   if (aiConversationResume) {
@@ -128,6 +136,50 @@ function buildRequest(commandName, parsedArgs) {
   }
 
   return { method: "PATCH", path: `/api/alarms/${encodedId}`, body: payload };
+}
+
+function buildAlarmTypesRequest(parsedArgs) {
+  const sub = parsedArgs._[1] || "list";
+  if (sub === "list") {
+    const query = parsedArgs["include-removed"] ? "?includeRemoved=true" : "";
+    return { method: "GET", path: `/api/alarm-types${query}` };
+  }
+  if (sub === "create") {
+    if (!parsedArgs.name) {
+      fail("alarm-types create requires --name <name>.");
+    }
+    const payload = {};
+    copyIfPresent(payload, "name", parsedArgs.name);
+    copyIfPresent(payload, "severity", parsedArgs.severity);
+    copyIfPresent(payload, "description", parsedArgs.description);
+    copyIfPresent(payload, "color", parsedArgs.color);
+    copyIfPresent(payload, "key", parsedArgs.key);
+    copyNumberIfPresent(payload, "sortOrder", parsedArgs["sort-order"]);
+    return { method: "POST", path: "/api/alarm-types", body: payload };
+  }
+
+  const typeId = parsedArgs.id || parsedArgs._[2];
+  if (!typeId) {
+    fail(`alarm-types ${sub} requires --id <alarm-type-id> or an alarm type ID argument.`);
+  }
+  const encoded = encodeURIComponent(typeId);
+  if (sub === "remove") {
+    return { method: "DELETE", path: `/api/alarm-types/${encoded}` };
+  }
+  if (sub === "edit") {
+    const payload = {};
+    copyIfPresent(payload, "name", parsedArgs.name);
+    copyIfPresent(payload, "severity", parsedArgs.severity);
+    copyIfPresent(payload, "description", parsedArgs.description);
+    copyIfPresent(payload, "color", parsedArgs.color);
+    copyNumberIfPresent(payload, "sortOrder", parsedArgs["sort-order"]);
+    if (Object.keys(payload).length === 0) {
+      fail("alarm-types edit requires at least one of --name, --severity, --description, --color, --sort-order.");
+    }
+    return { method: "PATCH", path: `/api/alarm-types/${encoded}`, body: payload };
+  }
+  fail(`Unsupported alarm-types subcommand: ${sub}. Use list, create, edit, or remove.`);
+  return undefined;
 }
 
 function buildAiConversationResume(parsedArgs) {
@@ -309,6 +361,13 @@ function normalizeHttpLink(value) {
 }
 
 function formatResponse(commandName, body) {
+  if (commandName === "alarm-types") {
+    if (Array.isArray(body.alarmTypes)) {
+      return { ok: true, alarmTypes: body.alarmTypes };
+    }
+    return { ok: true, alarmType: body.alarmType };
+  }
+
   if (commandName === "list") {
     return {
       ok: true,
@@ -317,6 +376,8 @@ function formatResponse(commandName, body) {
         title: alarm.title,
         body: alarm.body,
         status: alarm.status,
+        alarmTypeId: alarm.alarmTypeId,
+        alarmTypeName: alarm.alarmTypeName,
         scheduledAt: alarm.scheduledAt,
         timeZone: alarm.timeZone,
         expiresAt: alarm.expiresAt,
@@ -330,6 +391,8 @@ function formatResponse(commandName, body) {
     ok: true,
     alarmId: body.alarm?.id,
     status: body.alarm?.status,
+    alarmTypeId: body.alarm?.alarmTypeId,
+    alarmTypeName: body.alarm?.alarmTypeName,
     scheduledAt: body.alarm?.scheduledAt,
     timeZone: body.alarm?.timeZone,
     expiresAt: body.alarm?.expiresAt,
