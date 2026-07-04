@@ -62,11 +62,16 @@ function buildRequest(commandName, parsedArgs) {
   if (commandName === "trigger") {
     const payload = {
       title: parsedArgs.title || "Quave Pager",
-      body: parsedArgs.message || parsedArgs.body,
-      severity: parsedArgs.severity || "critical"
+      body: parsedArgs.message || parsedArgs.body
     };
+    const hasAlarmType = Boolean(parsedArgs["alarm-type-id"] || parsedArgs["alarm-type"]);
     copyIfPresent(payload, "alarmTypeId", parsedArgs["alarm-type-id"]);
     copyIfPresent(payload, "alarmType", parsedArgs["alarm-type"]);
+    if (!hasAlarmType && parsedArgs.severity) {
+      payload.severity = parsedArgs.severity;
+    } else if (!hasAlarmType) {
+      payload.alarmType = "critical";
+    }
 
     copyLinkIfPresent(payload, parsedArgs.link);
     const aiConversationResume = buildAiConversationResume(parsedArgs);

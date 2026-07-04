@@ -25,6 +25,7 @@ Before the first real page, use the CLI dry-run and inspect the request. This do
 
 ```bash
 npx -y github:quavedev/pager-agent trigger \
+  --alarm-type critical \
   --message "Look at Codex: I need your decision to continue." \
   --codex-thread-id "${CODEX_THREAD_ID:-<thread-id>}" \
   --dry-run
@@ -45,23 +46,62 @@ Preferred CLI examples:
 ```bash
 # Codex Desktop exposes the current thread id in CODEX_THREAD_ID.
 npx -y github:quavedev/pager-agent trigger \
+  --alarm-type critical \
   --message "Look at Codex: I need your decision to continue." \
   --codex-thread-id "${CODEX_THREAD_ID:-<thread-id>}"
 
 npx -y github:quavedev/pager-agent trigger \
+  --alarm-type critical \
   --message "Claude Code is blocked." \
   --claude-session "<session-id>" \
   --ai-cwd "$PWD"
 
 npx -y github:quavedev/pager-agent trigger \
+  --alarm-type critical \
   --message "Cursor agent needs you." \
   --cursor-session "<session-id>" \
   --ai-cwd "$PWD"
 
 npx -y github:quavedev/pager-agent trigger \
+  --alarm-type regular \
   --message "Review the PR that is ready." \
   --link "https://github.com/example/repo/pull/123"
 ```
+
+## Alarm Type Selection Policy
+
+New callers should be Alarm-Type-first. Pass `--alarm-type` / `alarmType`, or
+`--alarm-type-id` / `alarmTypeId`, whenever the caller knows the intent. Use
+legacy `severity` only for backwards compatibility.
+
+Default users start with these stable built-in type keys:
+
+| Alarm Type key | Display name | Use for |
+| --- | --- | --- |
+| `critical` | Critical | The user must act now: blocked work, approval/credential/device/real-world action, production or customer incident, release failure that prevents progress. |
+| `regular` | Regular | Actionable but not emergency: work done, PR/doc/release ready for review, routine approval, follow-up where prompt response is useful but not urgent. |
+| `info` | Info | FYI only: low-priority status, summaries, successful background checks, non-blocking reminders. |
+
+Why this matters: native clients let users pause or route one Alarm Type on one
+receiver without muting the rest. If every caller sends `critical`, the user
+cannot control noisy sources. If every caller sends only legacy `severity`, the
+intent is less clear in the clients.
+
+Caller rules:
+
+1. Prefer the built-in keys `critical`, `regular`, and `info` instead of display
+   names. Users may rename the display names, but the built-in keys stay stable.
+2. Long-lived clients should periodically call `alarm-types list` or
+   `GET /api/alarm-types` and use the returned `id` for custom types.
+3. Use a custom Alarm Type only when it already exists and clearly matches the
+   source/intent, for example `Deploys`, `Compliance`, `Customer incident`, or
+   `Family`.
+4. Do not create, edit, or remove Alarm Types automatically unless the user
+   explicitly asks or the app is in an onboarding/admin flow. Fall back to
+   `critical`, `regular`, or `info` when a custom type is absent.
+5. Hooks that page on "needs input" should use `critical`; hooks that page on
+   "finished / ready for review" should use `regular`; pure FYI hooks should use
+   `info`.
 
 Raw HTTP fallback:
 
@@ -72,7 +112,7 @@ curl -fsS -X POST https://pager.quave.ai/api/alarms \
   -d '{
     "title": "Quave Pager",
     "body": "Look at Codex: I need your decision to continue.",
-    "severity": "critical",
+    "alarmType": "critical",
     "aiConversationResume": {
       "provider": "codex",
       "conversationId": "<thread-id>",
@@ -89,7 +129,7 @@ Useful options:
 
 - `body`: required message.
 - `title`: defaults to `Quave Pager`.
-- `alarmType` / `alarmTypeId`: choose a user-controlled Alarm Type by name, key, or id. Overrides `severity` (severity is derived from the type). See "Alarm Types" below.
+- `alarmType` / `alarmTypeId`: choose a user-controlled Alarm Type by id, key, or name. Prefer built-in keys `critical`, `regular`, and `info` for default types because display names can be renamed. Overrides `severity` (severity is derived from the type). See "Alarm Types" below.
 - `severity`: `info`, `warning`, or `critical`; defaults to `critical`. Legacy field kept for compatibility; when no alarm type is given it maps to the matching default type (`critical`→Critical, `warning`→Regular, `info`→Info).
 - `link`: optional `http://` or `https://` result/action destination.
 - `aiConversationResume`: optional object for returning to Codex, Claude Code, Cursor, or another AI conversation.
@@ -117,6 +157,7 @@ If a Codex page only opens the generic Codex screen, the alarm probably used `--
 
 ```bash
 npx -y github:quavedev/pager-agent trigger \
+  --alarm-type regular \
   --message "Look at Codex: the work is done." \
   --codex-thread-id "${CODEX_THREAD_ID:-<thread-id>}"
 ```
@@ -169,7 +210,7 @@ curl -fsS -X POST https://pager.quave.ai/api/alarms/<alarm-id>/snooze \
 ## Alarm Types
 
 Prefer `alarmType` / `alarmTypeId` for new automations instead of choosing only a legacy `severity`.
-Default types are `Critical`, `Regular`, and `Info`; users can add or rename types later.
+Default types have stable keys `critical`, `regular`, and `info`; users can rename their display names or add custom types later.
 
 ```bash
 npx -y github:quavedev/pager-agent alarm-types list
@@ -178,7 +219,7 @@ npx -y github:quavedev/pager-agent alarm-types edit <alarm-type-id> --name "Fami
 npx -y github:quavedev/pager-agent alarm-types remove <alarm-type-id>
 
 npx -y github:quavedev/pager-agent trigger \
-  --alarm-type Regular \
+  --alarm-type regular \
   --message "Review the PR when you can."
 ```
 

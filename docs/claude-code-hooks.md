@@ -12,9 +12,9 @@ program) to call you every time.
 Two events cover the cases you usually want:
 
 - **`Notification`** — fires when Claude Code needs your input (a permission prompt, or it is
-  waiting on you). Page with `critical` severity.
+  waiting on you). Page with the `critical` Alarm Type.
 - **`Stop`** — fires when Claude Code finishes responding (work done in the thread). Page with
-  `warning` severity.
+  `regular` Alarm Type.
 
 ## 1. Set your API key
 
@@ -50,7 +50,7 @@ Merge this `hooks` block into the file (keep any existing hooks):
           {
             "type": "command",
             "timeout": 20,
-            "command": "input=$(cat); [ -n \"$QUAVE_PAGER_API_KEY\" ] || exit 0; sid=$(printf '%s' \"$input\" | jq -r '.session_id // empty'); dir=$(printf '%s' \"$input\" | jq -r '.cwd // empty'); msg=$(printf '%s' \"$input\" | jq -r '.message // \"Claude Code needs your input.\"'); jq -n --arg sid \"$sid\" --arg dir \"$dir\" --arg msg \"$msg\" '{title:\"Quave Pager\",body:$msg,severity:\"critical\",aiConversationResume:{provider:\"claude-code\",conversationId:$sid,targets:[{platforms:[\"macos\"],kind:\"copyCommand\",command:(\"claude --resume \"+$sid),cwd:$dir,label:\"Resume Claude Code\"}],fallbackInstructions:\"Open Claude Code and answer the prompt.\"}}' | curl -fsS -m 15 -X POST https://pager.quave.ai/api/alarms -H \"Authorization: Bearer $QUAVE_PAGER_API_KEY\" -H \"Content-Type: application/json\" -d @- >/dev/null 2>&1 || true"
+            "command": "input=$(cat); [ -n \"$QUAVE_PAGER_API_KEY\" ] || exit 0; sid=$(printf '%s' \"$input\" | jq -r '.session_id // empty'); dir=$(printf '%s' \"$input\" | jq -r '.cwd // empty'); msg=$(printf '%s' \"$input\" | jq -r '.message // \"Claude Code needs your input.\"'); jq -n --arg sid \"$sid\" --arg dir \"$dir\" --arg msg \"$msg\" '{title:\"Quave Pager\",body:$msg,alarmType:\"critical\",aiConversationResume:{provider:\"claude-code\",conversationId:$sid,targets:[{platforms:[\"macos\"],kind:\"copyCommand\",command:(\"claude --resume \"+$sid),cwd:$dir,label:\"Resume Claude Code\"}],fallbackInstructions:\"Open Claude Code and answer the prompt.\"}}' | curl -fsS -m 15 -X POST https://pager.quave.ai/api/alarms -H \"Authorization: Bearer $QUAVE_PAGER_API_KEY\" -H \"Content-Type: application/json\" -d @- >/dev/null 2>&1 || true"
           }
         ]
       }
@@ -61,7 +61,7 @@ Merge this `hooks` block into the file (keep any existing hooks):
           {
             "type": "command",
             "timeout": 20,
-            "command": "input=$(cat); [ -n \"$QUAVE_PAGER_API_KEY\" ] || exit 0; sid=$(printf '%s' \"$input\" | jq -r '.session_id // empty'); dir=$(printf '%s' \"$input\" | jq -r '.cwd // empty'); jq -n --arg sid \"$sid\" --arg dir \"$dir\" '{title:\"Quave Pager\",body:(\"Claude Code finished — \"+$dir),severity:\"warning\",aiConversationResume:{provider:\"claude-code\",conversationId:$sid,targets:[{platforms:[\"macos\"],kind:\"copyCommand\",command:(\"claude --resume \"+$sid),cwd:$dir,label:\"Resume Claude Code\"}],fallbackInstructions:\"Resume the Claude Code session.\"}}' | curl -fsS -m 15 -X POST https://pager.quave.ai/api/alarms -H \"Authorization: Bearer $QUAVE_PAGER_API_KEY\" -H \"Content-Type: application/json\" -d @- >/dev/null 2>&1 || true"
+            "command": "input=$(cat); [ -n \"$QUAVE_PAGER_API_KEY\" ] || exit 0; sid=$(printf '%s' \"$input\" | jq -r '.session_id // empty'); dir=$(printf '%s' \"$input\" | jq -r '.cwd // empty'); jq -n --arg sid \"$sid\" --arg dir \"$dir\" '{title:\"Quave Pager\",body:(\"Claude Code finished — \"+$dir),alarmType:\"regular\",aiConversationResume:{provider:\"claude-code\",conversationId:$sid,targets:[{platforms:[\"macos\"],kind:\"copyCommand\",command:(\"claude --resume \"+$sid),cwd:$dir,label:\"Resume Claude Code\"}],fallbackInstructions:\"Resume the Claude Code session.\"}}' | curl -fsS -m 15 -X POST https://pager.quave.ai/api/alarms -H \"Authorization: Bearer $QUAVE_PAGER_API_KEY\" -H \"Content-Type: application/json\" -d @- >/dev/null 2>&1 || true"
           }
         ]
       }
@@ -88,22 +88,22 @@ Requires `jq` and `curl` on PATH (both are standard in Claude Code environments)
 
    ```bash
    QUAVE_PAGER_API_KEY="dummy" npx -y github:quavedev/pager-agent trigger \
-     --message "Claude Code hook test" --claude-session "test-123" --ai-cwd "$PWD" --dry-run
+     --alarm-type regular --message "Claude Code hook test" --claude-session "test-123" --ai-cwd "$PWD" --dry-run
    ```
 
 3. Real page:
 
    ```bash
    npx -y github:quavedev/pager-agent trigger \
-     --message "Claude Code hook test" --claude-session "test-123" --ai-cwd "$PWD"
+     --alarm-type regular --message "Claude Code hook test" --claude-session "test-123" --ai-cwd "$PWD"
    ```
 
 ## Tuning
 
 - **`Stop` fires on every turn.** On the web (one async task per session) that is exactly
   what you want, so keep it. Locally/interactively it pages on every reply — for local use,
-  drop the `Stop` hook and keep only `Notification`, or lower the `Stop` `severity` to
-  `"info"`.
+  drop the `Stop` hook and keep only `Notification`, or change the `Stop` Alarm Type to
+  `info`.
 - **`Notification`** is the "I need you" page — keep it enabled everywhere.
 - **Never commit** `QUAVE_PAGER_API_KEY` into a repo, settings under version control, command
   arguments, or logs.
@@ -111,12 +111,13 @@ Requires `jq` and `curl` on PATH (both are standard in Claude Code environments)
 ## Other agents
 
 The same principle applies to any agent that exposes a deterministic notification hook —
-configure that hook to call the Quave Pager CLI or API instead of relying on the skill. For
+configure that hook to call the Quave Pager CLI or API instead of relying on the skill. Use the `critical` Alarm Type for input/blocker hooks, `regular` for done/review hooks, and `info` for FYI-only hooks. For
 example, Codex runs a `notify` program (configured in `~/.codex/config.toml`) on events such
-as turn completion. Codex Desktop exposes `CODEX_THREAD_ID`; point the hook at
-`npx -y github:quavedev/pager-agent trigger --codex-thread-id "$CODEX_THREAD_ID"` so
-Quave Pager receives `codex://threads/<thread-id>` as AI resume metadata. Do not send
-`codex://...` through `--link`; `--link` is for `http(s)` result/action URLs.
+as turn completion. Codex Desktop exposes `CODEX_THREAD_ID`; for completion notifications, point the hook at
+`npx -y github:quavedev/pager-agent trigger --alarm-type regular --message "Codex turn finished." --codex-thread-id "$CODEX_THREAD_ID"` so
+Quave Pager receives `codex://threads/<thread-id>` as AI resume metadata. Use `critical` instead only for
+hooks that specifically mean input/blocker required now. Do not send `codex://...` through
+`--link`; `--link` is for `http(s)` result/action URLs.
 
 Cursor should follow the same copy-command approach as Claude Code until a stable Cursor
 conversation deeplink is verified: use `--cursor-session <session-id> --ai-cwd "$PWD"`.

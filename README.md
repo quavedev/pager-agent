@@ -51,13 +51,14 @@ Set your API key as `QUAVE_PAGER_API_KEY`. Create or rotate the key from the Qua
 Dry-run:
 
 ```bash
-npx -y github:quavedev/pager-agent trigger --dry-run --message "Quave Pager setup test."
+npx -y github:quavedev/pager-agent trigger --dry-run --alarm-type info --message "Quave Pager setup test."
 ```
 
 Real page:
 
 ```bash
 npx -y github:quavedev/pager-agent trigger \
+  --alarm-type critical \
   --message "Look at Codex: I need your decision to continue." \
   --codex-thread-id "${CODEX_THREAD_ID:-<thread-id>}"
 ```
@@ -66,7 +67,7 @@ Optional Alarm Type:
 
 ```bash
 npx -y github:quavedev/pager-agent trigger \
-  --alarm-type Regular \
+  --alarm-type regular \
   --message "Review this when you can."
 ```
 
@@ -78,7 +79,7 @@ For Claude Code, configure `Stop` and `Notification` hooks in `settings.json` so
 
 - [docs/claude-code-hooks.md](docs/claude-code-hooks.md)
 
-Other agents follow the same pattern. Codex Desktop exposes `CODEX_THREAD_ID`; hooks or notify commands should call `npx -y github:quavedev/pager-agent trigger --codex-thread-id "$CODEX_THREAD_ID"` instead of passing `codex://...` through `--link`. Cursor should use the copy-command resume pattern (`--cursor-session ... --ai-cwd "$PWD"`) until a stable Cursor conversation deeplink is verified.
+Other agents follow the same pattern. Use `critical` for input/blocker hooks, `regular` for done/review hooks, and `info` for FYI-only hooks. Codex Desktop exposes `CODEX_THREAD_ID`; completion notify commands should call `npx -y github:quavedev/pager-agent trigger --alarm-type regular --message "Codex turn finished." --codex-thread-id "$CODEX_THREAD_ID"` instead of passing `codex://...` through `--link`. Cursor should use the copy-command resume pattern (`--cursor-session ... --ai-cwd "$PWD"`) until a stable Cursor conversation deeplink is verified.
 
 ## Link vs AI conversation resume
 
@@ -95,23 +96,27 @@ Examples:
 ```bash
 # Codex: tell compatible clients how to return to the Codex conversation.
 npx -y github:quavedev/pager-agent trigger \
+  --alarm-type critical \
   --message "Look at Codex: I need your decision." \
   --codex-thread-id "${CODEX_THREAD_ID:-<thread-id>}"
 
 # Claude Code: copy a resume command on macOS.
 npx -y github:quavedev/pager-agent trigger \
+  --alarm-type critical \
   --message "Claude Code is blocked." \
   --claude-session "<session-id>" \
   --ai-cwd "$PWD"
 
 # Cursor: copy a resume command on macOS.
 npx -y github:quavedev/pager-agent trigger \
+  --alarm-type critical \
   --message "Cursor agent needs you." \
   --cursor-session "<session-id>" \
   --ai-cwd "$PWD"
 
 # Result/action URL: separate from returning to the AI conversation.
 npx -y github:quavedev/pager-agent trigger \
+  --alarm-type regular \
   --message "Review the PR that is ready." \
   --link "https://github.com/example/repo/pull/123"
 ```
@@ -144,13 +149,22 @@ Use `cancel`, `dismiss`, or `snooze` when you want lifecycle history instead of 
 
 ## Alarm Types
 
-Alarm Types are user-controlled categories for choosing which receiver should ring. New users start with `Critical`, `Regular`, and `Info`; agents should prefer `--alarm-type` or `--alarm-type-id` for new alarms. Legacy `--severity critical|warning|info` still works and maps to the default types.
+Alarm Types are user-controlled categories for choosing which receiver should ring. Native clients can pause or route one type on one receiver without muting the rest, so callers should send the right type instead of marking everything critical.
+
+New users start with stable built-in keys `critical`, `regular`, and `info` (shown as `Critical`, `Regular`, and `Info` in clients). Use these defaults by key:
+
+- `critical`: blocked work that needs the user now — approvals, credentials, device/real-world actions, production/customer incidents, or release failures.
+- `regular`: actionable but not emergency — work done, PR/doc/release ready for review, routine approvals, or useful follow-ups.
+- `info`: FYI only — low-priority status, summaries, successful background checks, or non-blocking reminders.
+
+Long-lived integrations should call `alarm-types list` or `GET /api/alarm-types` and use the returned `id` for custom types such as `Deploys`, `Compliance`, `Customer incident`, or `Family`. Do not create, edit, or remove Alarm Types automatically unless the user explicitly asks or the client is in an onboarding/admin flow. Legacy `--severity critical|warning|info` still works and maps to the default types when no Alarm Type is supplied.
 
 ```bash
 npx -y github:quavedev/pager-agent alarm-types list
 npx -y github:quavedev/pager-agent alarm-types create --name "Family" --severity warning
 npx -y github:quavedev/pager-agent alarm-types edit <alarm-type-id> --name "Family urgent" --severity critical
 npx -y github:quavedev/pager-agent alarm-types remove <alarm-type-id>
+npx -y github:quavedev/pager-agent trigger --alarm-type regular --message "Review this when you can."
 ```
 
 Never commit, log, or paste API keys into chat, URLs, or command arguments.
