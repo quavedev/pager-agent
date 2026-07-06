@@ -72,9 +72,9 @@ npx -y github:quavedev/pager-agent trigger \
 
 New callers should be Alarm-Type-first. Pass `--alarm-type` / `alarmType`, or
 `--alarm-type-id` / `alarmTypeId`, whenever the caller knows the intent. Use
-legacy `severity` only for backwards compatibility.
+legacy `severity` only for backwards compatibility; do not create a separate criticality concept for new callers.
 
-Default users start with these stable built-in type keys:
+Default users start with these stable built-in type keys. Custom user types should win when they clearly match the intent (for example, use `Time sensitive` for cooking timers if that type exists):
 
 | Alarm Type key | Display name | Use for |
 | --- | --- | --- |
@@ -84,8 +84,8 @@ Default users start with these stable built-in type keys:
 
 Why this matters: native clients let users pause or route one Alarm Type on one
 receiver without muting the rest. If every caller sends `critical`, the user
-cannot control noisy sources. If every caller sends only legacy `severity`, the
-intent is less clear in the clients.
+cannot control noisy sources. Alarm Type is the user-facing intent; legacy
+`severity` is only a compatibility shim for older callers.
 
 Caller rules:
 
@@ -94,8 +94,8 @@ Caller rules:
 2. Long-lived clients should periodically call `alarm-types list` or
    `GET /api/alarm-types` and use the returned `id` for custom types.
 3. Use a custom Alarm Type only when it already exists and clearly matches the
-   source/intent, for example `Deploys`, `Compliance`, `Customer incident`, or
-   `Family`.
+   source/intent, for example `Time sensitive` for cooking timers, `Deploys`,
+   `Compliance`, `Customer incident`, or `Family`.
 4. Do not create, edit, or remove Alarm Types automatically unless the user
    explicitly asks or the app is in an onboarding/admin flow. Fall back to
    `critical`, `regular`, or `info` when a custom type is absent.
@@ -129,8 +129,7 @@ Useful options:
 
 - `body`: required message.
 - `title`: defaults to `Quave Pager`.
-- `alarmType` / `alarmTypeId`: choose a user-controlled Alarm Type by id, key, or name. Prefer built-in keys `critical`, `regular`, and `info` for default types because display names can be renamed. Overrides `severity` (severity is derived from the type). See "Alarm Types" below.
-- `severity`: `info`, `warning`, or `critical`; defaults to `critical`. Legacy field kept for compatibility; when no alarm type is given it maps to the matching default type (`critical`→Critical, `warning`→Regular, `info`→Info).
+- `alarmType` / `alarmTypeId`: choose a user-controlled Alarm Type by id, key, or name. Prefer built-in keys `critical`, `regular`, and `info` for default types because display names can be renamed; use a returned custom type id when one clearly matches the intent. See "Alarm Types" below.
 - `link`: optional `http://` or `https://` result/action destination.
 - `aiConversationResume`: optional object for returning to Codex, Claude Code, Cursor, or another AI conversation.
 - `delaySeconds`: relative scheduling.
@@ -209,13 +208,13 @@ curl -fsS -X POST https://pager.quave.ai/api/alarms/<alarm-id>/snooze \
 
 ## Alarm Types
 
-Prefer `alarmType` / `alarmTypeId` for new automations instead of choosing only a legacy `severity`.
+Prefer `alarmType` / `alarmTypeId` for new automations. Alarm Type is the user-facing concept; legacy `severity` is not a separate user-facing setting for new callers.
 Default types have stable keys `critical`, `regular`, and `info`; users can rename their display names or add custom types later.
 
 ```bash
 npx -y github:quavedev/pager-agent alarm-types list
-npx -y github:quavedev/pager-agent alarm-types create --name "Family" --severity warning
-npx -y github:quavedev/pager-agent alarm-types edit <alarm-type-id> --name "Family urgent" --severity critical
+npx -y github:quavedev/pager-agent alarm-types create --name "Time sensitive" --description "Cooking timers and other time-sensitive reminders"
+npx -y github:quavedev/pager-agent alarm-types edit <alarm-type-id> --name "Family" --description "Family interruptions"
 npx -y github:quavedev/pager-agent alarm-types remove <alarm-type-id>
 
 npx -y github:quavedev/pager-agent trigger \
@@ -223,7 +222,7 @@ npx -y github:quavedev/pager-agent trigger \
   --message "Review the PR when you can."
 ```
 
-Use `severity` only as backward-compatible loudness metadata (`critical`, `warning`, or `info`). When no alarm type is supplied, the API maps legacy severities to the matching default type: `critical` → `Critical`, `warning` → `Regular`, `info` → `Info`.
+Use custom Alarm Types when they already exist and match the intent. For example, if `alarm-types list` shows `Time sensitive`, use it for cooking timers or other real-world reminders that need timely attention. Treat `severity` as a legacy compatibility field only.
 
 ## Response Pattern
 

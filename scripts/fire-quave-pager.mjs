@@ -179,7 +179,7 @@ function buildAlarmTypesRequest(parsedArgs) {
     copyIfPresent(payload, "color", parsedArgs.color);
     copyNumberIfPresent(payload, "sortOrder", parsedArgs["sort-order"]);
     if (Object.keys(payload).length === 0) {
-      fail("alarm-types edit requires at least one of --name, --severity, --description, --color, --sort-order.");
+      fail("alarm-types edit requires at least one of --name, --description, --color, --sort-order.");
     }
     return { method: "PATCH", path: `/api/alarm-types/${encoded}`, body: payload };
   }

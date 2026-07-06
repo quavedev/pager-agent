@@ -149,7 +149,7 @@ Use `cancel`, `dismiss`, or `snooze` when you want lifecycle history instead of 
 
 ## Alarm Types
 
-Alarm Types are user-controlled categories for choosing which receiver should ring. Native clients can pause or route one type on one receiver without muting the rest, so callers should send the right type instead of marking everything critical.
+Alarm Types are user-controlled categories for choosing how the user wants to be paged and which receiver should ring. Native clients can pause or route one type on one receiver without muting the rest, so callers should send the right type instead of marking everything critical.
 
 New users start with stable built-in keys `critical`, `regular`, and `info` (shown as `Critical`, `Regular`, and `Info` in clients). Use these defaults by key:
 
@@ -157,12 +157,12 @@ New users start with stable built-in keys `critical`, `regular`, and `info` (sho
 - `regular`: actionable but not emergency — work done, PR/doc/release ready for review, routine approvals, or useful follow-ups.
 - `info`: FYI only — low-priority status, summaries, successful background checks, or non-blocking reminders.
 
-Long-lived integrations should call `alarm-types list` or `GET /api/alarm-types` and use the returned `id` for custom types such as `Deploys`, `Compliance`, `Customer incident`, or `Family`. Do not create, edit, or remove Alarm Types automatically unless the user explicitly asks or the client is in an onboarding/admin flow. Legacy `--severity critical|warning|info` still works and maps to the default types when no Alarm Type is supplied.
+Long-lived integrations should call `alarm-types list` or `GET /api/alarm-types` and use the returned `id` for custom types such as `Time sensitive`, `Deploys`, `Compliance`, `Customer incident`, or `Family`. Do not create, edit, or remove Alarm Types automatically unless the user explicitly asks or the client is in an onboarding/admin flow.
 
 ```bash
 npx -y github:quavedev/pager-agent alarm-types list
-npx -y github:quavedev/pager-agent alarm-types create --name "Family" --severity warning
-npx -y github:quavedev/pager-agent alarm-types edit <alarm-type-id> --name "Family urgent" --severity critical
+npx -y github:quavedev/pager-agent alarm-types create --name "Time sensitive" --description "Cooking timers and other time-sensitive reminders"
+npx -y github:quavedev/pager-agent alarm-types edit <alarm-type-id> --name "Family" --description "Family interruptions"
 npx -y github:quavedev/pager-agent alarm-types remove <alarm-type-id>
 npx -y github:quavedev/pager-agent trigger --alarm-type regular --message "Review this when you can."
 ```
