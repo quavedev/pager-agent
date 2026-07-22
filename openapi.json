@@ -269,10 +269,10 @@
     "/api/calendar/oauth/callback": {
       "get": {
         "security": [],
-        "summary": "Complete Google Calendar OAuth and store the encrypted refresh grant",
+        "summary": "Complete Google Calendar OAuth, store the encrypted refresh grant, and start the first account sync automatically",
         "responses": {
           "200": {
-            "description": "Google Calendar connected"
+            "description": "Google Calendar connected and synced"
           },
           "400": {
             "description": "OAuth callback rejected"
@@ -282,7 +282,7 @@
     },
     "/api/calendar/sync": {
       "post": {
-        "summary": "Sync selected Google calendars across all connected accounts or one connectionId from the request body, dedupe same-account connections, and materialize Pager alarms for non -n events",
+        "summary": "Sync selected Google calendars across all connected accounts or one connectionId from the request body, dedupe same-account connections, and materialize Calendar-type Pager alarms for non -n events at each source reminder minute",
         "responses": {
           "200": {
             "description": "Sync summary"
@@ -308,7 +308,7 @@
     },
     "/api/calendar/sources/{id}": {
       "patch": {
-        "summary": "Update a Google calendar source selection, default mode, lead time, or Alarm Type",
+        "summary": "Update a Google calendar source selection, default mode, reminderMinutes (0-200), legacy leadMinutes, or Alarm Type",
         "responses": {
           "200": {
             "description": "Calendar source updated"

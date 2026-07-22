@@ -151,11 +151,12 @@ Use `cancel`, `dismiss`, or `snooze` when you want lifecycle history instead of 
 
 Alarm Types are user-controlled categories for choosing how the user wants to be paged and which receiver should ring. Native clients can pause or route one type on one receiver without muting the rest, so callers should send the right type instead of marking everything critical.
 
-New users start with stable built-in keys `critical`, `regular`, and `info` (shown as `Critical`, `Regular`, and `Info` in clients). Use these defaults by key:
+New users start with stable built-in keys `critical`, `regular`, `info`, and `calendar` (shown as `Critical`, `Regular`, `Info`, and `Calendar` in clients). Use the agent-facing defaults by key:
 
 - `critical`: blocked work that needs the user now — approvals, credentials, device/real-world actions, production/customer incidents, or release failures.
 - `regular`: actionable but not emergency — work done, PR/doc/release ready for review, routine approvals, or useful follow-ups.
 - `info`: FYI only — low-priority status, summaries, successful background checks, or non-blocking reminders.
+- `calendar`: reserved for Google Calendar cloud-sync event reminders so users can pause or route calendar alarms separately from AI pages. Agents should not use this type for normal AI notifications.
 
 Long-lived integrations should call `alarm-types list` or `GET /api/alarm-types` and use the returned `id` for custom types such as `Time sensitive`, `Deploys`, `Compliance`, `Customer incident`, or `Family`. Do not create, edit, or remove Alarm Types automatically unless the user explicitly asks or the client is in an onboarding/admin flow.
 

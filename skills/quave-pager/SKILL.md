@@ -81,6 +81,7 @@ Default users start with these stable built-in type keys. Custom user types shou
 | `critical` | Critical | The user must act now: blocked work, approval/credential/device/real-world action, production or customer incident, release failure that prevents progress. |
 | `regular` | Regular | Actionable but not emergency: work done, PR/doc/release ready for review, routine approval, follow-up where prompt response is useful but not urgent. |
 | `info` | Info | FYI only: low-priority status, summaries, successful background checks, non-blocking reminders. |
+| `calendar` | Calendar | Reserved for Google Calendar cloud-sync event reminders. Agents should not use this for normal AI notifications. |
 
 Why this matters: native clients let users pause or route one Alarm Type on one
 receiver without muting the rest. If every caller sends `critical`, the user
@@ -98,7 +99,7 @@ Caller rules:
    `Compliance`, `Customer incident`, or `Family`.
 4. Do not create, edit, or remove Alarm Types automatically unless the user
    explicitly asks or the app is in an onboarding/admin flow. Fall back to
-   `critical`, `regular`, or `info` when a custom type is absent.
+   `critical`, `regular`, or `info` when a custom type is absent. Do not fall back to `calendar` unless you are the Calendar sync integration.
 5. Hooks that page on "needs input" should use `critical`; hooks that page on
    "finished / ready for review" should use `regular`; pure FYI hooks should use
    `info`.
@@ -129,7 +130,7 @@ Useful options:
 
 - `body`: required message.
 - `title`: defaults to `Quave Pager`.
-- `alarmType` / `alarmTypeId`: choose a user-controlled Alarm Type by id, key, or name. Prefer built-in keys `critical`, `regular`, and `info` for default types because display names can be renamed; use a returned custom type id when one clearly matches the intent. See "Alarm Types" below.
+- `alarmType` / `alarmTypeId`: choose a user-controlled Alarm Type by id, key, or name. Prefer built-in keys `critical`, `regular`, and `info` for agent-created pages because display names can be renamed; `calendar` is reserved for Google Calendar sync reminders; use a returned custom type id when one clearly matches the intent. See "Alarm Types" below.
 - `link`: optional `http://` or `https://` result/action destination.
 - `aiConversationResume`: optional object for returning to Codex, Claude Code, Cursor, or another AI conversation.
 - `delaySeconds`: relative scheduling.
@@ -209,7 +210,7 @@ curl -fsS -X POST https://pager.quave.ai/api/alarms/<alarm-id>/snooze \
 ## Alarm Types
 
 Prefer `alarmType` / `alarmTypeId` for new automations. Alarm Type is the user-facing concept; legacy `severity` is not a separate user-facing setting for new callers.
-Default types have stable keys `critical`, `regular`, and `info`; users can rename their display names or add custom types later.
+Default types have stable keys `critical`, `regular`, `info`, and `calendar`; users can rename their display names or add custom types later. `calendar` is reserved for Google Calendar sync reminders, not normal agent pages.
 
 ```bash
 npx -y github:quavedev/pager-agent alarm-types list
