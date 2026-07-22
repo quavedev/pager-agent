@@ -431,6 +431,19 @@
           }
         }
       }
+    },
+    "/api/calendar/connections/{id}": {
+      "delete": {
+        "summary": "Disconnect a Google Calendar account, remove its synced calendars, and cancel pending alarms created from them",
+        "responses": {
+          "200": {
+            "description": "Calendar connection disconnected"
+          },
+          "404": {
+            "description": "Calendar connection not found"
+          }
+        }
+      }
     }
   }
 }
