@@ -243,6 +243,117 @@
         }
       }
     },
+    "/api/calendar": {
+      "get": {
+        "summary": "Read Google Calendar connection, source, and synced event state",
+        "responses": {
+          "200": {
+            "description": "Calendar sync state"
+          }
+        }
+      }
+    },
+    "/api/calendar/oauth/start": {
+      "post": {
+        "summary": "Create a Google Calendar OAuth authorization URL",
+        "responses": {
+          "200": {
+            "description": "Authorization URL and temporary state"
+          },
+          "400": {
+            "description": "Google OAuth is not configured"
+          }
+        }
+      }
+    },
+    "/api/calendar/oauth/callback": {
+      "get": {
+        "security": [],
+        "summary": "Complete Google Calendar OAuth and store the encrypted refresh grant",
+        "responses": {
+          "200": {
+            "description": "Google Calendar connected"
+          },
+          "400": {
+            "description": "OAuth callback rejected"
+          }
+        }
+      }
+    },
+    "/api/calendar/sync": {
+      "post": {
+        "summary": "Sync selected Google calendars across all connected accounts or one connectionId from the request body, dedupe same-account connections, and materialize Pager alarms for non -n events",
+        "responses": {
+          "200": {
+            "description": "Sync summary"
+          },
+          "400": {
+            "description": "Calendar is not connected or sync failed"
+          }
+        }
+      }
+    },
+    "/api/calendar/connections/{id}": {
+      "delete": {
+        "summary": "Disconnect a Google Calendar account, remove its synced calendars, and cancel pending alarms created from them",
+        "responses": {
+          "200": {
+            "description": "Calendar connection disconnected"
+          },
+          "404": {
+            "description": "Calendar connection not found"
+          }
+        }
+      }
+    },
+    "/api/calendar/sources/{id}": {
+      "patch": {
+        "summary": "Update a Google calendar source selection, default mode, lead time, or Alarm Type",
+        "responses": {
+          "200": {
+            "description": "Calendar source updated"
+          },
+          "404": {
+            "description": "Calendar source not found"
+          }
+        }
+      },
+      "post": {
+        "summary": "Update a Google calendar source for clients where PATCH is awkward",
+        "responses": {
+          "200": {
+            "description": "Calendar source updated"
+          },
+          "404": {
+            "description": "Calendar source not found"
+          }
+        }
+      }
+    },
+    "/api/calendar/events/{id}": {
+      "patch": {
+        "summary": "Set or clear a per-event alarm/notify/mute override",
+        "responses": {
+          "200": {
+            "description": "Calendar event override updated"
+          },
+          "404": {
+            "description": "Calendar event not found"
+          }
+        }
+      },
+      "post": {
+        "summary": "Set or clear a per-event override for clients where PATCH is awkward",
+        "responses": {
+          "200": {
+            "description": "Calendar event override updated"
+          },
+          "404": {
+            "description": "Calendar event not found"
+          }
+        }
+      }
+    },
     "/api/api-keys": {
       "get": {
         "summary": "List API keys",
@@ -428,19 +539,6 @@
         "responses": {
           "200": {
             "description": "Pending alarm events"
-          }
-        }
-      }
-    },
-    "/api/calendar/connections/{id}": {
-      "delete": {
-        "summary": "Disconnect a Google Calendar account, remove its synced calendars, and cancel pending alarms created from them",
-        "responses": {
-          "200": {
-            "description": "Calendar connection disconnected"
-          },
-          "404": {
-            "description": "Calendar connection not found"
           }
         }
       }
