@@ -282,7 +282,7 @@
     },
     "/api/calendar/sync": {
       "post": {
-        "summary": "Sync selected Google calendars across all connected accounts or one connectionId from the request body, dedupe same-account connections, and materialize Calendar-type Pager alarms for non -n events at each source reminder minute",
+        "summary": "Sync selected Google calendars across all connected accounts or one connectionId from the request body, dedupe same-account connections, and materialize Calendar-type Pager alarms for events not prefixed with -n at each source reminder minute. Optional timeZone sets the display timezone for materialized alarms; otherwise Pager uses the newest enabled device timezone or account default.",
         "responses": {
           "200": {
             "description": "Sync summary"
@@ -425,7 +425,7 @@
     },
     "/api/devices/register": {
       "post": {
-        "summary": "Register device",
+        "summary": "Register device, including optional IANA timeZone for local alarm display",
         "responses": {
           "200": {
             "description": "Device registered"
