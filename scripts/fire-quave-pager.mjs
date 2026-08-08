@@ -3,9 +3,9 @@
 const args = parseArgs(process.argv.slice(2));
 const command = args._[0] || "trigger";
 
-const supportedCommands = new Set(["trigger", "list", "edit", "remove", "cancel", "dismiss", "snooze", "alarm-types"]);
+const supportedCommands = new Set(["trigger", "list", "edit", "remove", "cancel", "dismiss", "snooze", "alarm-types", "doctor"]);
 if (!supportedCommands.has(command)) {
-  fail(`Unsupported command: ${command}. Use trigger, list, edit, remove, cancel, dismiss, snooze, or alarm-types.`);
+  fail(`Unsupported command: ${command}. Use trigger, list, edit, remove, cancel, dismiss, snooze, alarm-types, or doctor.`);
 }
 
 if (args["delay-seconds"] && args["scheduled-at"]) {
@@ -20,6 +20,9 @@ if (command === "trigger") {
 }
 
 const baseUrl = (args["base-url"] || process.env.QUAVE_PAGER_BASE_URL || "https://pager.quave.ai").replace(/\/+$/, "");
+if (command === "doctor") {
+  process.exit(await runDoctor(args, baseUrl));
+}
 const request = buildRequest(command, args);
 
 if (!request) {
@@ -231,6 +234,12 @@ function buildAiConversationResume(parsedArgs) {
     conversationId = conversationId || parsedArgs["claude-session"];
     const command = parsedArgs["claude-command"] || `claude --resume ${shellQuote(parsedArgs["claude-session"])}`;
     targets.push(commandTarget(command, parsedArgs["ai-cwd"], "Copy Claude resume command"));
+    targets.push({
+      platforms: ["android", "ios", "web"],
+      kind: "instructions",
+      instructions: `On the computer running Claude Code, ${parsedArgs["ai-cwd"] ? `run \`cd ${parsedArgs["ai-cwd"]}\` and then ` : ""}run \`${command}\`.`,
+      label: "Resume Claude Code on your computer"
+    });
   }
 
   if (parsedArgs["claude-remote-url"]) {
@@ -405,6 +414,167 @@ function formatResponse(commandName, body) {
     link: body.alarm?.link,
     aiConversationResume: body.alarm?.aiConversationResume
   };
+}
+
+async function runDoctor(parsedArgs, baseUrl) {
+  const staleSeconds = positiveNumber(parsedArgs["max-stale-seconds"], 24 * 60 * 60, "max-stale-seconds");
+  const testTimeoutSeconds = positiveNumber(parsedArgs["test-timeout-seconds"], 30, "test-timeout-seconds");
+  const testAlarmType = parsedArgs["test-alarm-type"] || "regular";
+  if (parsedArgs["dry-run"]) {
+    console.log(JSON.stringify({
+      dryRun: true,
+      baseUrl,
+      checks: ["API authentication", "registered receivers", "lastSeenAt freshness", "receiver and Critical pause state", "AI-resume capabilities"],
+      testDelivery: parsedArgs["test-delivery"] === true ? { alarmType: testAlarmType, timeoutSeconds: testTimeoutSeconds } : false
+    }, null, 2));
+    return 0;
+  }
+
+  const apiKey = process.env.QUAVE_PAGER_API_KEY;
+  if (!apiKey) {
+    fail("QUAVE_PAGER_API_KEY is required. Ask the user to create or rotate a key in the Quave Pager Android or macOS app and expose it as an environment variable.");
+  }
+  const headers = { Authorization: `Bearer ${apiKey}` };
+  const [status, alarmTypes] = await Promise.all([
+    requestJson(baseUrl, "/api/status", { headers }),
+    requestJson(baseUrl, "/api/alarm-types", { headers })
+  ]);
+  const report = buildDoctorReport(status, alarmTypes, staleSeconds);
+  if (parsedArgs["test-delivery"] === true) {
+    report.testDelivery = await testDelivery(baseUrl, headers, status, alarmTypes, testAlarmType, testTimeoutSeconds);
+    if (!report.testDelivery.confirmed) {
+      report.healthy = false;
+      report.issues.push({ code: "test_delivery_unconfirmed", message: report.testDelivery.message });
+    }
+  }
+  console.log(JSON.stringify(report, null, 2));
+  return report.healthy ? 0 : 2;
+}
+
+function buildDoctorReport(status, alarmTypes, staleSeconds) {
+  const now = Date.now();
+  const devices = Array.isArray(status.devices) ? status.devices.filter((device) => !device.removedAt) : [];
+  const types = Array.isArray(alarmTypes.alarmTypes) ? alarmTypes.alarmTypes : [];
+  const critical = types.find((type) => type.key === "critical");
+  const issues = [];
+  const deviceReports = devices.map((device) => {
+    const lastSeenMs = Date.parse(device.lastSeenAt || "");
+    const ageSeconds = Number.isFinite(lastSeenMs) ? Math.max(0, Math.floor((now - lastSeenMs) / 1000)) : undefined;
+    const criticalState = critical ? device.alarmTypeStates?.[critical.id] : undefined;
+    return {
+      deviceId: device.deviceId,
+      name: device.name,
+      platform: device.platform,
+      enabled: device.enabled === true,
+      manuallyEnabled: device.manualEnabled !== false,
+      criticalEnabled: criticalState?.manualEnabled !== false,
+      lastSeenAt: device.lastSeenAt,
+      lastSeenAgeSeconds: ageSeconds,
+      fresh: Number.isFinite(lastSeenMs) && now - lastSeenMs <= staleSeconds * 1000,
+      aiConversationResumeKinds: device.capabilities?.aiConversationResumeKinds || ""
+    };
+  });
+  if (deviceReports.length === 0) {
+    issues.push({ code: "no_registered_devices", message: "No active receiver is registered to this account." });
+  }
+  const manuallyEnabled = deviceReports.filter((device) => device.manuallyEnabled);
+  if (deviceReports.length > 0 && manuallyEnabled.length === 0) {
+    issues.push({ code: "all_devices_paused", message: "All registered receivers are manually paused." });
+  }
+  if (manuallyEnabled.length > 0 && !manuallyEnabled.some((device) => device.fresh)) {
+    issues.push({ code: "no_fresh_enabled_device", message: `No enabled receiver has checked in within ${Math.floor(staleSeconds / 3600)} hours.` });
+  }
+  if (manuallyEnabled.length > 0 && !manuallyEnabled.some((device) => device.criticalEnabled)) {
+    issues.push({ code: "critical_paused_everywhere", message: "Critical alarms are manually paused on every enabled receiver." });
+  }
+  return {
+    ok: issues.length === 0,
+    healthy: issues.length === 0,
+    checkedAt: new Date(now).toISOString(),
+    staleAfterSeconds: staleSeconds,
+    issues,
+    devices: deviceReports,
+    alarmTypes: types.map((type) => ({ id: type.id, key: type.key, name: type.name, isDefault: type.isDefault }))
+  };
+}
+
+async function testDelivery(baseUrl, headers, status, alarmTypes, alarmType, timeoutSeconds) {
+  const types = Array.isArray(alarmTypes.alarmTypes) ? alarmTypes.alarmTypes : [];
+  const selectedType = types.find((type) => type.id === alarmType || type.key === alarmType || type.name.toLowerCase() === String(alarmType).toLowerCase());
+  if (!selectedType) {
+    return { confirmed: false, message: `Alarm Type ${alarmType} was not found.` };
+  }
+  const devices = Array.isArray(status.devices) ? status.devices : [];
+  const target = devices.find((device) => !device.removedAt && device.enabled === true && device.alarmTypeStates?.[selectedType.id]?.enabled !== false);
+  if (!target) {
+    return { confirmed: false, message: `No enabled receiver can ring the ${selectedType.name} test alarm.` };
+  }
+
+  let alarmId;
+  try {
+    const created = await requestJson(baseUrl, "/api/alarms", {
+      method: "POST",
+      headers: { ...headers, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: "Quave Pager doctor test",
+        body: "Delivery-health test. This alarm will stop automatically after confirmation.",
+        alarmTypeId: selectedType.id,
+        deviceId: target.deviceId,
+        ttlSeconds: Math.max(60, timeoutSeconds + 30)
+      })
+    });
+    alarmId = created.alarm?.id;
+    if (!alarmId) {
+      return { confirmed: false, message: "The API accepted the test without returning an alarm id." };
+    }
+    const deadline = Date.now() + timeoutSeconds * 1000;
+    while (Date.now() < deadline) {
+      await sleep(2000);
+      const nextStatus = await requestJson(baseUrl, "/api/status", { headers });
+      const ringing = (nextStatus.devices || []).find((device) => device.deviceId === target.deviceId)?.ringingAlarm;
+      if (ringing?.alarmId === alarmId) {
+        return { confirmed: true, alarmId, deviceId: target.deviceId, message: "The receiver reported that this test alarm is ringing." };
+      }
+    }
+    return { confirmed: false, alarmId, deviceId: target.deviceId, message: `No ringing receipt arrived within ${timeoutSeconds} seconds.` };
+  } finally {
+    if (alarmId) {
+      try {
+        await requestJson(baseUrl, `/api/alarms/${encodeURIComponent(alarmId)}/cancel`, {
+          method: "POST",
+          headers: { ...headers, "Content-Type": "application/json" },
+          body: "{}"
+        });
+      } catch {
+        // The test result remains useful even if stopping the local ringer is
+        // delayed; the server expiry is deliberately short as a final guard.
+      }
+    }
+  }
+}
+
+async function requestJson(baseUrl, path, options) {
+  const response = await fetch(`${baseUrl}${path}`, options);
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    fail(`Quave Pager doctor failed: HTTP ${response.status} ${JSON.stringify(body)}`);
+  }
+  return body;
+}
+
+function positiveNumber(value, fallback, flag) {
+  if (value === undefined || value === true || value === "") {
+    return fallback;
+  }
+  const number = Number(value);
+  if (!Number.isFinite(number) || number <= 0) {
+    fail(`--${flag} must be a positive number.`);
+  }
+  return number;
+}
+
+function sleep(milliseconds) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
 function parseArgs(values) {

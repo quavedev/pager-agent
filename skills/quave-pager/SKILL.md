@@ -144,7 +144,7 @@ AI resume CLI flags:
 
 - `--codex-thread-id <thread-id>`: creates Codex Android/web URL and macOS `codex://threads/<thread-id>` deeplink resume targets. In Codex Desktop, prefer `${CODEX_THREAD_ID}` when set. If the thread id is not known, do not invent one.
 - `--codex-deeplink codex://threads/<thread-id>`: explicit Codex app deeplink target.
-- `--claude-session <session-id>`: creates a macOS copy-command target using `claude --resume`.
+- `--claude-session <session-id>`: creates a macOS copy-command target plus Android/iOS/web resume instructions using `claude --resume`.
 - `--cursor-session <session-id>`: creates a macOS copy-command target using `cursor-agent --resume`.
 - `--ai-cwd <path>`: attach the working directory to copy-command targets.
 - `--ai-resume-json '<json object>'`: send an explicit `aiConversationResume` object.
@@ -162,7 +162,21 @@ npx -y github:quavedev/pager-agent trigger \
   --codex-thread-id "${CODEX_THREAD_ID:-<thread-id>}"
 ```
 
-Codex currently has a known macOS deep link (`codex://threads/<thread-id>`). Claude Code and Cursor do not have a verified stable conversation deeplink in this package, so use `--claude-session` or `--cursor-session` to provide a copyable resume command plus `--ai-cwd`.
+Codex currently has a known macOS deep link (`codex://threads/<thread-id>`). Claude Code and Cursor do not have a verified stable conversation deeplink in this package. `--claude-session` and `--cursor-session` provide a macOS copy-command target and an Android/iOS/web instruction target; use `--ai-cwd` so the instruction names the right workspace.
+
+## Verify delivery health
+
+Before relying on a new channel, run:
+
+```bash
+npx -y github:quavedev/pager-agent doctor
+```
+
+It checks API access, registered devices, recent sync, whole-device/Critical
+pause state, and resume capabilities without printing the key. Use
+`doctor --test-delivery` only when a real test alarm is wanted; success means
+the selected receiver reported it is ringing, not merely that the API returned
+`201`. See `docs/doctor.md` in the public package for details.
 
 ## Inspect, Edit, And Remove Alarms
 

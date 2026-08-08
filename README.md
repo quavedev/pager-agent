@@ -78,6 +78,7 @@ The skill above pages on request, but a skill is **discretionary** — the agent
 For Claude Code, configure `Stop` and `Notification` hooks in `settings.json` so finished turns and input prompts fire a page with `aiConversationResume` metadata. Full copy-paste setup, including where the config lives for local vs. web sessions:
 
 - [docs/claude-code-hooks.md](docs/claude-code-hooks.md)
+- [Windows + Android + Claude Code](docs/windows-claude-code.md)
 
 Other agents follow the same pattern. Use `critical` for input/blocker hooks, `regular` for done/review hooks, and `info` for FYI-only hooks. Codex Desktop exposes `CODEX_THREAD_ID`; completion notify commands should call `npx -y github:quavedev/pager-agent trigger --alarm-type regular --message "Codex turn finished." --codex-thread-id "$CODEX_THREAD_ID"` instead of passing `codex://...` through `--link`. Cursor should use the copy-command resume pattern (`--cursor-session ... --ai-cwd "$PWD"`) until a stable Cursor conversation deeplink is verified.
 
@@ -132,7 +133,25 @@ Advanced resume fields:
 - `--ai-resume-instructions <text>`
 - `edit <alarm-id> --clear-ai-conversation-resume` removes resume metadata.
 
-Claude Code and Cursor do not have a verified stable conversation deeplink in this package today. Use `--claude-session` or `--cursor-session` to provide a copyable resume command plus `--ai-cwd`.
+Claude Code and Cursor do not have a verified stable conversation deeplink in this package today. `--claude-session` and `--cursor-session` provide a macOS copy-command target plus an Android/iOS/web instruction target, so a phone can tell you exactly how to resume on the computer that owns the session.
+
+## Verify delivery health
+
+Use `doctor` after installation and whenever an agent seems to finish silently:
+
+```bash
+npx -y github:quavedev/pager-agent doctor
+```
+
+For a deliberate end-to-end test, target one eligible receiver and wait for it
+to report that it is ringing. The command cancels the test alarm afterward:
+
+```bash
+npx -y github:quavedev/pager-agent doctor --test-delivery
+```
+
+See [docs/doctor.md](docs/doctor.md) for the evidence model and the automated
+email fallback when receiver health becomes unsafe.
 
 List, edit, and remove existing alarms:
 
@@ -151,7 +170,7 @@ Use `cancel`, `dismiss`, or `snooze` when you want lifecycle history instead of 
 
 Alarm Types are user-controlled categories for choosing how the user wants to be paged and which receiver should ring. Native clients can pause or route one type on one receiver without muting the rest, so callers should send the right type instead of marking everything critical.
 
-New users start with stable built-in keys `critical`, `regular`, `info`, and `calendar` (shown as `Critical`, `Regular`, `Info`, and `Calendar` in clients). Use the agent-facing defaults by key:
+New users start with stable built-in keys `critical`, `regular`, `info`, `calendar`, and `automation`. `automation` is reserved for trusted local automation actions; its creation timestamp reflects lazy seeding, not a user-created type. Use the agent-facing defaults by key:
 
 - `critical`: blocked work that needs the user now — approvals, credentials, device/real-world actions, production/customer incidents, or release failures.
 - `regular`: actionable but not emergency — work done, PR/doc/release ready for review, routine approvals, or useful follow-ups.

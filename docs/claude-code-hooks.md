@@ -27,8 +27,12 @@ export QUAVE_PAGER_API_KEY="<key from the Quave Pager Android or macOS app>"
 - **Local** (terminal / macOS app / IDE): put the `export` in `~/.zshrc` or `~/.bashrc`.
 - **Claude Code on the web**: set `QUAVE_PAGER_API_KEY` in your environment's
   variables/secrets in the web UI.
+- **Windows + Android**: follow [Windows + Android + Claude Code](windows-claude-code.md)
+  for a PowerShell sender, forward-slash hook paths, and local diagnostics.
 
 The hook commands below safely **no-op** when the key is unset, so they never break a session.
+They also need a safe local log before making that decision; silent failures are
+not a usable setup experience.
 
 ## 2. Add the hooks to `settings.json`
 
@@ -50,7 +54,7 @@ Merge this `hooks` block into the file (keep any existing hooks):
           {
             "type": "command",
             "timeout": 20,
-            "command": "input=$(cat); [ -n \"$QUAVE_PAGER_API_KEY\" ] || exit 0; sid=$(printf '%s' \"$input\" | jq -r '.session_id // empty'); dir=$(printf '%s' \"$input\" | jq -r '.cwd // empty'); msg=$(printf '%s' \"$input\" | jq -r '.message // \"Claude Code needs your input.\"'); jq -n --arg sid \"$sid\" --arg dir \"$dir\" --arg msg \"$msg\" '{title:\"Quave Pager\",body:$msg,alarmType:\"critical\",aiConversationResume:{provider:\"claude-code\",conversationId:$sid,targets:[{platforms:[\"macos\"],kind:\"copyCommand\",command:(\"claude --resume \"+$sid),cwd:$dir,label:\"Resume Claude Code\"}],fallbackInstructions:\"Open Claude Code and answer the prompt.\"}}' | curl -fsS -m 15 -X POST https://pager.quave.ai/api/alarms -H \"Authorization: Bearer $QUAVE_PAGER_API_KEY\" -H \"Content-Type: application/json\" -d @- >/dev/null 2>&1 || true"
+            "command": "log=$HOME/.claude/quave-pager.log; mkdir -p ${log%/*}; printf '%s hook started\\n' $(date -u +%Y-%m-%dT%H:%M:%SZ) >>$log; input=$(cat); [ -n \"$QUAVE_PAGER_API_KEY\" ] || { printf '%s skipped: QUAVE_PAGER_API_KEY is unset\\n' $(date -u +%Y-%m-%dT%H:%M:%SZ) >>$log; exit 0; }; sid=$(printf '%s' \"$input\" | jq -r '.session_id // empty'); dir=$(printf '%s' \"$input\" | jq -r '.cwd // empty'); msg=$(printf '%s' \"$input\" | jq -r '.message // \"Claude Code needs your input.\"'); jq -n --arg sid \"$sid\" --arg dir \"$dir\" --arg msg \"$msg\" '{title:\"Quave Pager\",body:$msg,alarmType:\"critical\",aiConversationResume:{provider:\"claude-code\",conversationId:$sid,targets:[{platforms:[\"macos\"],kind:\"copyCommand\",command:(\"claude --resume \"+$sid),cwd:$dir,label:\"Resume Claude Code\"},{platforms:[\"android\",\"ios\",\"web\"],kind:\"instructions\",instructions:(\"On the computer running Claude Code, run: cd \"+$dir+\" && claude --resume \"+$sid),label:\"Resume Claude Code on your computer\"}],fallbackInstructions:\"Open Claude Code and answer the prompt.\"}}' | curl -fsS -m 15 -X POST https://pager.quave.ai/api/alarms -H \"Authorization: Bearer $QUAVE_PAGER_API_KEY\" -H \"Content-Type: application/json\" -d @- >>$log 2>&1 || true"
           }
         ]
       }
@@ -61,7 +65,7 @@ Merge this `hooks` block into the file (keep any existing hooks):
           {
             "type": "command",
             "timeout": 20,
-            "command": "input=$(cat); [ -n \"$QUAVE_PAGER_API_KEY\" ] || exit 0; sid=$(printf '%s' \"$input\" | jq -r '.session_id // empty'); dir=$(printf '%s' \"$input\" | jq -r '.cwd // empty'); jq -n --arg sid \"$sid\" --arg dir \"$dir\" '{title:\"Quave Pager\",body:(\"Claude Code finished — \"+$dir),alarmType:\"regular\",aiConversationResume:{provider:\"claude-code\",conversationId:$sid,targets:[{platforms:[\"macos\"],kind:\"copyCommand\",command:(\"claude --resume \"+$sid),cwd:$dir,label:\"Resume Claude Code\"}],fallbackInstructions:\"Resume the Claude Code session.\"}}' | curl -fsS -m 15 -X POST https://pager.quave.ai/api/alarms -H \"Authorization: Bearer $QUAVE_PAGER_API_KEY\" -H \"Content-Type: application/json\" -d @- >/dev/null 2>&1 || true"
+            "command": "log=$HOME/.claude/quave-pager.log; mkdir -p ${log%/*}; printf '%s hook started\\n' $(date -u +%Y-%m-%dT%H:%M:%SZ) >>$log; input=$(cat); [ -n \"$QUAVE_PAGER_API_KEY\" ] || { printf '%s skipped: QUAVE_PAGER_API_KEY is unset\\n' $(date -u +%Y-%m-%dT%H:%M:%SZ) >>$log; exit 0; }; sid=$(printf '%s' \"$input\" | jq -r '.session_id // empty'); dir=$(printf '%s' \"$input\" | jq -r '.cwd // empty'); jq -n --arg sid \"$sid\" --arg dir \"$dir\" '{title:\"Quave Pager\",body:(\"Claude Code finished — \"+$dir),alarmType:\"regular\",aiConversationResume:{provider:\"claude-code\",conversationId:$sid,targets:[{platforms:[\"macos\"],kind:\"copyCommand\",command:(\"claude --resume \"+$sid),cwd:$dir,label:\"Resume Claude Code\"},{platforms:[\"android\",\"ios\",\"web\"],kind:\"instructions\",instructions:(\"On the computer running Claude Code, run: cd \"+$dir+\" && claude --resume \"+$sid),label:\"Resume Claude Code on your computer\"}],fallbackInstructions:\"Resume the Claude Code session.\"}}' | curl -fsS -m 15 -X POST https://pager.quave.ai/api/alarms -H \"Authorization: Bearer $QUAVE_PAGER_API_KEY\" -H \"Content-Type: application/json\" -d @- >>$log 2>&1 || true"
           }
         ]
       }
@@ -72,8 +76,9 @@ Merge this `hooks` block into the file (keep any existing hooks):
 
 Each hook reads the event JSON from stdin, extracts `session_id` and `cwd` (and `message`
 for `Notification`), and POSTs an alarm to `https://pager.quave.ai/api/alarms`. The
-`aiConversationResume` block gives the phone/Mac a **Resume Claude Code** button that runs
-`claude --resume <session-id>` in the original working directory.
+`aiConversationResume` gives macOS a copyable **Resume Claude Code** command and Android/iOS/web
+an instruction that names the original working directory and resume command. This avoids sending
+Android-only users a macOS-only action.
 
 Claude Code does not have a verified stable conversation deeplink in this package today, so
 the hook uses a copyable resume command instead of a custom URL scheme.
