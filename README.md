@@ -150,8 +150,7 @@ to report that it is ringing. The command cancels the test alarm afterward:
 npx -y github:quavedev/pager-agent doctor --test-delivery
 ```
 
-See [docs/doctor.md](docs/doctor.md) for the evidence model and the automated
-email fallback when receiver health becomes unsafe.
+See [docs/doctor.md](docs/doctor.md) for the delivery evidence model.
 
 List, edit, and remove existing alarms:
 

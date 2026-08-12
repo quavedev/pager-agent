@@ -107,11 +107,3 @@ npx -y github:quavedev/pager-agent doctor --test-delivery
 HTTP `201` only means the API accepted an alarm. A successful doctor test means
 the receiver reported that the test alarm is ringing. It does not claim that a
 human heard the sound.
-
-## Email fallback
-
-Quave Pager checks registered receivers every 15 minutes and emails the account
-owner when every receiver is manually paused, none of the enabled receivers has
-checked in for 24 hours, or Critical is manually paused everywhere. It sends at
-most one email per continuing condition per 24 hours. Scheduled quiet hours do
-not create an alert.

@@ -27,7 +27,6 @@ npx -y github:quavedev/pager-agent doctor --test-delivery
 Neither alone proves that a receiver rang. The test succeeds only after the
 target receiver reports the test alarm as ringing.
 
-The scheduled Quave Pager health monitor emails the account owner when the
-channel remains unhealthy. `doctor` still matters because it detects a missing
-or invalid API key in the machine that is trying to page the user; a server
-cannot infer that an unknown local environment variable was rotated or removed.
+`doctor` also detects a missing or invalid API key in the machine that is
+trying to page the user, which the Pager server cannot infer from an unknown
+local environment variable.
