@@ -79,7 +79,7 @@
         }
       },
       "post": {
-        "summary": "Create alarm, optionally with link and aiConversationResume metadata",
+        "summary": "Create alarm, optionally with link, aiConversationResume, or an allowlisted localAutomation pilot action",
         "responses": {
           "201": {
             "description": "Alarm created"
@@ -282,7 +282,7 @@
     },
     "/api/calendar/sync": {
       "post": {
-        "summary": "Sync selected Google calendars across all connected accounts or one connectionId from the request body, dedupe same-account connections, and materialize Calendar-type Pager alarms for events not prefixed with -n at each source reminder minute. Optional timeZone sets the display timezone for materialized alarms; otherwise Pager uses the newest enabled device timezone or account default.",
+        "summary": "Sync selected Google calendars across all connected accounts or one connectionId from the request body, dedupe same-account connections, and materialize Calendar-type Pager alarms for events not prefixed with -n at each source reminder minute. Each alarm retains the Google event timezone; receivers display the absolute scheduled instant in their device timezone.",
         "responses": {
           "200": {
             "description": "Sync summary"
@@ -394,7 +394,7 @@
     },
     "/api/delivery": {
       "get": {
-        "summary": "Read account delivery mode and registered devices",
+        "summary": "Read account delivery settings and registered devices",
         "responses": {
           "200": {
             "description": "Delivery settings and device list"

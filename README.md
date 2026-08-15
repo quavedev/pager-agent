@@ -79,6 +79,7 @@ For Claude Code, configure `Stop` and `Notification` hooks in `settings.json` so
 
 - [docs/claude-code-hooks.md](docs/claude-code-hooks.md)
 - [Windows + Android + Claude Code](docs/windows-claude-code.md)
+- [GitHub Actions to local Codex automation pilot](docs/local-codex-automation.md)
 
 Other agents follow the same pattern. Use `critical` for input/blocker hooks, `regular` for done/review hooks, and `info` for FYI-only hooks. Codex Desktop exposes `CODEX_THREAD_ID`; completion notify commands should call `npx -y github:quavedev/pager-agent trigger --alarm-type regular --message "Codex turn finished." --codex-thread-id "$CODEX_THREAD_ID"` instead of passing `codex://...` through `--link`. Cursor should use the copy-command resume pattern (`--cursor-session ... --ai-cwd "$PWD"`) until a stable Cursor conversation deeplink is verified.
 
