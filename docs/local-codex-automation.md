@@ -128,6 +128,9 @@ to the monitor; use a repository test to detect drift.
   TTL expires. Pager is not a durable job queue.
 - The local profile, repository path, Codex installation, GitHub authentication,
   and Codex authentication are machine-owned prerequisites.
+- The macOS runner overwrites `~/Library/Logs/QuavePager/local-automation.log`
+  for each run with owner-only permissions. Use it to diagnose a non-zero Codex
+  exit without creating an unread output pipe or a growing log archive.
 - Pager acknowledgment proves receipt and local process completion. It does not
   prove that CI became green; the local prompt requires GitHub status, commit,
   PR, and validation evidence.
