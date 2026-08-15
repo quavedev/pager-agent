@@ -57,7 +57,7 @@ The placeholders `{{runUrl}}`, `{{repository}}`, and
 text. They are not evaluated by a shell. The runner starts:
 
 ```text
-codex exec --ignore-user-config -c 'approval_policy="never"' -s danger-full-access -C <repositoryPath> <resolved-prompt>
+codex exec --ignore-user-config -c 'approval_policy="never"' -c 'features.shell_snapshot=false' -s danger-full-access -C <repositoryPath> <resolved-prompt>
 ```
 
 Repository `AGENTS.md` instructions still apply. Global Codex config is ignored
@@ -65,7 +65,8 @@ so unrelated hooks and MCP servers cannot hang an unattended run. The app starts
 Codex directly instead of through a shell and supplies only `HOME`, the local
 user, a fixed executable `PATH`, locale, and temporary-directory variables. It
 does not forward API keys or unrelated service credentials from the app's
-environment.
+environment. Shell snapshotting is disabled so Codex does not start the user's
+login shell merely to reconstruct that environment.
 
 ## Repository-wide GitHub Actions monitor
 
