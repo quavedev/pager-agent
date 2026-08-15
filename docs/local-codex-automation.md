@@ -1,79 +1,136 @@
 # GitHub Actions to local Codex automation pilot
 
-Quave Pager can deliver one closed, AI-to-AI automation action to a configured
-macOS receiver. A failed GitHub Actions job sends a Pager `Automation` alarm;
-the Mac maps the fixed action to a locally owned checkout and starts Codex.
+Quave Pager can deliver a closed, AI-to-AI automation action to a configured
+macOS receiver. A failed GitHub Actions workflow sends a Pager `Automation`
+alarm; the Mac maps the named action and profile to a locally owned checkout and
+prompt, then starts Codex.
 
-This is not a general remote executor. Production currently accepts only:
+This is not a remote shell or remote-prompt API. GitHub sends only:
 
-- action: `codex-repair-main-to-staging`
-- profile: `quaveone-main-to-staging`
-- repositories: `quaveone/web` or `quaveone/infra`
-- run URL: the matching `https://github.com/<repository>/actions/runs/<id>`
+- a named action;
+- a named profile;
+- a repository name;
+- the matching `https://github.com/<repository>/actions/runs/<id>` URL.
 
-The API rejects arbitrary prompts, shell commands, executables, working
-directories, and other repositories. Android filters out automation alarms and
-never executes them.
+The API rejects prompt, command, executable, and working-directory fields.
+Android filters out automation alarms and never executes them.
 
-## Mac prerequisites
+## Production allowlist
+
+| Action | Profile | Repository | Purpose |
+| --- | --- | --- | --- |
+| `codex-investigate-actions-failure` | `quaveone-web-actions-failure` | `quaveone/web` | Diagnose and, when safe, repair any failed monitored workflow |
+| `codex-repair-main-to-staging` | `quaveone-main-to-staging` | `quaveone/web`, `quaveone/infra` | Legacy guarded main-to-staging repair |
+
+## Mac setup
 
 1. Install and open the signed Quave Pager macOS app.
 2. Install and authenticate the Codex CLI. `codex exec` must work from a login
    shell.
-3. Keep the macOS device and its `Automation` Alarm Type enabled for the current
-   delivery schedule.
-4. Create `~/Library/Application Support/QuavePager/local-automation.json`:
+3. Keep the macOS device manually enabled and keep its `Automation` Alarm Type
+   enabled.
+4. Create `~/Library/Application Support/QuavePager/local-automation.json`.
+
+The web failure profile below owns both the absolute path and the prompt on the
+Mac. The remote alarm can select this exact profile, but cannot replace either
+value.
 
 ```json
 {
   "repositories": {
-    "quaveone/web": "/absolute/path/to/web",
-    "quaveone/infra": "/absolute/path/to/infra"
+    "quaveone/web": "/Users/filipe/Documents/quave/ws/quaveone/web",
+    "quaveone/infra": "/Users/filipe/Documents/quave/ws/quaveone/infra"
+  },
+  "profiles": {
+    "quaveone-web-actions-failure": {
+      "action": "codex-investigate-actions-failure",
+      "repository": "quaveone/web",
+      "repositoryPath": "/Users/filipe/Documents/quave/ws/quaveone/web",
+      "prompt": "Handle the failed GitHub Actions run {{runUrl}} for {{repository}}. Treat {{repositoryPath}} as the canonical checkout and do not overwrite existing changes. Read the repository AGENTS.md before acting. Inspect the exact run, failed jobs, failed logs, event, commit, branch, and associated pull request with gh before concluding. Classify the cause as a repository regression, workflow/configuration defect, transient failure, external dependency, credentials/permissions problem, or deployment/runtime failure. If it is safely actionable in the repository, reuse or create a GitHub issue, work in a disposable worktree from the appropriate remote ref, create a codex/actions-run-<run-id> branch, implement the smallest fix, run focused validation plus the repository-required checks, commit, push, and open a draft PR against the run's target branch. If a writable Filipe/Codex-owned PR already owns the failing commit, a narrow fix may be pushed to that PR branch instead. Never overwrite a dirty checkout, force-push, rebase shared branches, push directly to main/staging/beta, expose or rotate secrets, mutate production data/infrastructure, or bypass a required approval. A safe transient rerun may be attempted once and must be verified. For external, credential, permission, or real-world blockers, preserve exact evidence in the associated issue or PR and use Quave Pager for the one required user action. Do not stop at diagnosis when a safe repository fix is available. Finish with links, checks, live GitHub status, remaining risk, and worktree cleanup."
+    }
   }
 }
 ```
 
-These are local absolute paths. They are never supplied by the remote alarm.
+The placeholders `{{runUrl}}`, `{{repository}}`, and
+`{{repositoryPath}}` are substituted by the macOS app as plain Codex prompt
+text. They are not evaluated by a shell. The runner starts:
 
-## GitHub Actions step
-
-Store the user-owned key as the `QUAVE_PAGER_API_KEY` repository secret. Put
-this failure-only step after the step that may fail:
-
-```yaml
-- name: Request local Codex repair
-  if: failure()
-  env:
-    QUAVE_PAGER_API_KEY: ${{ secrets.QUAVE_PAGER_API_KEY }}
-  run: |
-    curl -fsS -X POST https://pager.quave.ai/api/alarms \
-      -H "Authorization: Bearer $QUAVE_PAGER_API_KEY" \
-      -H "Content-Type: application/json" \
-      -d "{\"title\":\"Main-to-staging repair\",\"body\":\"Inspect the failed GitHub Actions run.\",\"alarmType\":\"automation\",\"ttlSeconds\":900,\"localAutomation\":{\"action\":\"codex-repair-main-to-staging\",\"profile\":\"quaveone-main-to-staging\",\"repository\":\"$GITHUB_REPOSITORY\",\"runUrl\":\"https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID\"}}"
+```text
+codex exec --ignore-user-config -c 'approval_policy="never"' -s danger-full-access -C <repositoryPath> <resolved-prompt>
 ```
 
-## Fixed behavior
+Repository `AGENTS.md` instructions still apply. Global Codex config is ignored
+so unrelated hooks and MCP servers cannot hang an unattended run.
 
-The local profile fetches `origin/main` and `origin/staging`. If main is already
-contained in staging it exits without changes. Otherwise it uses a disposable
-worktree for a normal merge and focused validation. It must never create a
-missing staging branch, rebase, force-push, delete, recreate, or rename staging,
-or modify production infrastructure.
+## Repository-wide GitHub Actions monitor
 
-## Limitations and proof
+Store the user-owned key as the repository secret
+`QUAVE_PAGER_API_KEY`. A default-branch `workflow_run` monitor can watch
+every current workflow without adding a failure step to every job:
 
-- The Mac must be on, online, able to run the app, and listening before the
-  alarm TTL expires.
-- A paused device, paused Automation type, or inactive delivery schedule
-  suppresses execution. Send a fresh alarm after resuming; expired alarms are
-  not a durable job queue.
-- The local repository mapping, Codex installation, authentication, and CLI
-  compatibility are machine-owned prerequisites. The runner ignores the user's
-  global Codex config so unrelated MCP servers and notification hooks cannot
-  hang the unattended process; repository `AGENTS.md` instructions still apply.
-- The macOS app reports local success or failure. Pager acknowledgment proves
-  receipt/execution, not that a branch changed or GitHub CI became green.
-  Re-check refs and Actions after every repair.
-- Personal repositories, additional organizations, arbitrary Action failures,
-  and other repairs require a new narrowly allowlisted profile contract. The
-  current API rejects them.
+```yaml
+name: Pager GitHub Actions failure monitor
+on:
+  workflow_run:
+    workflows:
+      - Branch CI
+      - Website Deploy ONE
+      # Include every other workflow name in this repository.
+    types: [completed]
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  notify:
+    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Request local Codex investigation
+        env:
+          QUAVE_PAGER_API_KEY: ${{ secrets.QUAVE_PAGER_API_KEY }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+        run: |
+          payload=$(jq -n --arg runUrl "$RUN_URL" '{
+            title: "GitHub Actions failure needs local Codex",
+            body: ("Inspect and handle " + $runUrl),
+            alarmType: "automation",
+            ttlSeconds: 21600,
+            link: $runUrl,
+            localAutomation: {
+              action: "codex-investigate-actions-failure",
+              profile: "quaveone-web-actions-failure",
+              repository: "quaveone/web",
+              runUrl: $runUrl
+            }
+          }')
+          curl --fail-with-body --silent --show-error \
+            -X POST https://pager.quave.ai/api/alarms \
+            -H "Authorization: Bearer $QUAVE_PAGER_API_KEY" \
+            -H "Content-Type: application/json" \
+            --data "$payload"
+```
+
+`workflow_run` is centralized and receives repository secrets from the trusted
+default-branch workflow. It must not check out or execute code from the failed
+run. GitHub requires workflow names to be listed, so add every new workflow name
+to the monitor; use a repository test to detect drift.
+
+## Delivery and proof
+
+- Local automation is non-ringing. It bypasses the Mac device's saved human
+  delivery-hours schedule so overnight CI can still run, but it respects an
+  explicit whole-device pause and the Automation Alarm Type's manual or
+  scheduled pause.
+- The Mac must be on, online, able to run the app, and listening before the alarm
+  TTL expires. Pager is not a durable job queue.
+- The local profile, repository path, Codex installation, GitHub authentication,
+  and Codex authentication are machine-owned prerequisites.
+- Pager acknowledgment proves receipt and local process completion. It does not
+  prove that CI became green; the local prompt requires GitHub status, commit,
+  PR, and validation evidence.
+- Additional repositories require a new server allowlist entry plus a
+  machine-owned local profile. Remote callers still cannot supply prompts or
+  commands.
