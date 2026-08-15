@@ -25,8 +25,8 @@ Android filters out automation alarms and never executes them.
 ## Mac setup
 
 1. Install and open the signed Quave Pager macOS app.
-2. Install and authenticate the Codex CLI. `codex exec` must work from a login
-   shell.
+2. Install and authenticate the Codex CLI in `/opt/homebrew/bin`,
+   `/usr/local/bin`, or `~/.local/bin`.
 3. Keep the macOS device manually enabled and keep its `Automation` Alarm Type
    enabled.
 4. Create `~/Library/Application Support/QuavePager/local-automation.json`.
@@ -61,7 +61,11 @@ codex exec --ignore-user-config -c 'approval_policy="never"' -s danger-full-acce
 ```
 
 Repository `AGENTS.md` instructions still apply. Global Codex config is ignored
-so unrelated hooks and MCP servers cannot hang an unattended run.
+so unrelated hooks and MCP servers cannot hang an unattended run. The app starts
+Codex directly instead of through a shell and supplies only `HOME`, the local
+user, a fixed executable `PATH`, locale, and temporary-directory variables. It
+does not forward API keys or unrelated service credentials from the app's
+environment.
 
 ## Repository-wide GitHub Actions monitor
 
@@ -128,6 +132,9 @@ to the monitor; use a repository test to detect drift.
   TTL expires. Pager is not a durable job queue.
 - The local profile, repository path, Codex installation, GitHub authentication,
   and Codex authentication are machine-owned prerequisites.
+- The runner does not inherit API keys from a login shell. Commands used by the
+  local agent must authenticate through their own machine-owned stores (for
+  example, Codex auth and `gh auth`).
 - The macOS runner overwrites `~/Library/Logs/QuavePager/local-automation.log`
   for each run with owner-only permissions. Use it to diagnose a non-zero Codex
   exit without creating an unread output pipe or a growing log archive.
