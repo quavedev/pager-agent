@@ -16,7 +16,8 @@ Install it on Android, open Quave Pager, create or verify your account, and gran
 - full-screen alarm alerts
 - exact alarms
 - Do Not Disturb bypass / notification policy access
-- ignore battery optimization / unrestricted battery usage
+
+Android delivery is push-first through FCM with periodic reconciliation and exact local scheduling. Leave normal battery optimization enabled; the app automatically uses its foreground polling fallback only if push registration is unavailable.
 
 Copy the generated API key only into `QUAVE_PAGER_API_KEY` for your agent environment or approved secret store.
 
