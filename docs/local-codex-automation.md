@@ -25,8 +25,11 @@ Android filters out automation alarms and never executes them.
 ## Mac setup
 
 1. Install and open the signed Quave Pager macOS app.
-2. Install and authenticate the Codex CLI in `/opt/homebrew/bin`,
-   `/usr/local/bin`, or `~/.local/bin`.
+2. Install and authenticate Codex. The macOS receiver accepts OpenAI's
+   standalone CLI installation in `~/.local/bin`, the CLI bundled with the
+   ChatGPT or Codex app in `/Applications` or `~/Applications`, and the
+   native executable from a global npm installation under `/opt/homebrew`,
+   `/usr/local`, or `~/.local`.
 3. Keep the macOS device manually enabled and keep its `Automation` Alarm Type
    enabled.
 4. Create `~/Library/Application Support/QuavePager/local-automation.json`.
