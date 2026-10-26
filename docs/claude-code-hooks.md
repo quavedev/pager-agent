@@ -113,6 +113,66 @@ Requires `jq` and `curl` on PATH (both are standard in Claude Code environments)
 - **Never commit** `QUAVE_PAGER_API_KEY` into a repo, settings under version control, command
   arguments, or logs.
 
+## Claude Code inside T3 Code
+
+When Claude Code runs inside [T3 Code](https://t3.codes), use the packaged Node hook
+[`scripts/claude-code-hook.cjs`](../scripts/claude-code-hook.cjs) instead of the inline
+commands above. On every `Notification` and `Stop` it:
+
+- finds the T3 thread that hosts the Claude session (read-only lookup in
+  `~/.t3/userdata/statev2.sqlite`, or `$T3CODE_HOME/userdata`; needs Node 22.5+ for `node:sqlite`);
+- titles the alarm `Needs you: <thread title>` (`critical`) or `Done: <thread title>` (`regular`),
+  and words the body for the event ("Claude asked you a question." for `AskUserQuestion`);
+- sends **Resume AI conversation** targets: `t3code://threads/<environment-id>/<thread-id>` for
+  macOS and Android (Quave Pager 0.1.96+ with the T3 Code Android app), and
+  `https://app.t3.codes/<environment-id>/<thread-id>` for iOS/web;
+- points delegated child threads at their root thread, and skips `Stop` pages from child threads;
+- falls back to the plain Claude Code page (copyable `claude --resume`) when the session is not in T3.
+
+On Android, T3 may open on Home instead of the thread when it was not already running.
+Open T3 once and tap **Resume AI conversation** again.
+
+Install:
+
+```bash
+mkdir -p ~/.claude/hooks
+curl -fsSL https://raw.githubusercontent.com/quavedev/pager-agent/main/scripts/claude-code-hook.cjs \
+  -o ~/.claude/hooks/quave-pager-hook.cjs
+```
+
+```json
+{
+  "hooks": {
+    "Notification": [
+      {
+        "matcher": "permission_prompt|idle_prompt|elicitation_dialog",
+        "hooks": [{ "type": "command", "command": "node \"$HOME/.claude/hooks/quave-pager-hook.cjs\"", "timeout": 15 }]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [{ "type": "command", "command": "node \"$HOME/.claude/hooks/quave-pager-hook.cjs\"", "timeout": 15 }]
+      }
+    ]
+  }
+}
+```
+
+The hook reads
+`QUAVE_PAGER_API_KEY` from the environment, then from an interactive `zsh`, and no-ops without it.
+Preview the payload without sending:
+
+```bash
+echo '{"hook_event_name":"Stop","session_id":"'"$CLAUDE_CODE_SESSION_ID"'","cwd":"'"$PWD"'"}' \
+  | node ~/.claude/hooks/quave-pager-hook.cjs --dry-run
+```
+
+Set `QUAVE_PAGER_HOOK_DEBUG=1` to print the API status code.
+
+For manual pages from an agent inside T3, use
+`--t3-session "${CLAUDE_CODE_SESSION_ID:-$CODEX_THREAD_ID}"` with the CLI.
+
 ## Other agents
 
 The same principle applies to any agent that exposes a deterministic notification hook —

@@ -129,6 +129,7 @@ Advanced resume fields:
 - `--ai-resume-json '<json object>'`: send the full `aiConversationResume` object.
 - `--ai-provider codex|claude-code|cursor|other`
 - `--ai-conversation-id <id>` / `--ai-title <title>` / `--ai-label <button label>`
+- `--t3-session <native-session-id>` (inside T3 Code: `$CLAUDE_CODE_SESSION_ID` or `$CODEX_THREAD_ID`) / `--t3-thread-id <id> --t3-environment-id <id>`: opens the T3 Code thread (`t3code://threads/<environment-id>/<thread-id>`) on macOS and Android and uses the thread title
 - `--codex-thread-id <thread-id>` / `--codex-deeplink codex://threads/<thread-id>`
 - `--ai-resume-url <url>` with optional `--ai-platforms android,ios,macos,web`
 - `--ai-resume-command <command>` with optional `--ai-cwd <path>`

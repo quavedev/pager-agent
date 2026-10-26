@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+import { lookupT3Thread, readT3EnvironmentId, t3ResumeTargets } from "./t3-thread.mjs";
+
 const args = parseArgs(process.argv.slice(2));
 const command = args._[0] || "trigger";
 
@@ -22,6 +24,9 @@ if (command === "trigger") {
 const baseUrl = (args["base-url"] || process.env.QUAVE_PAGER_BASE_URL || "https://pager.quave.ai").replace(/\/+$/, "");
 if (command === "doctor") {
   process.exit(await runDoctor(args, baseUrl));
+}
+if (args["t3-session"]) {
+  await resolveT3Session(args);
 }
 const request = buildRequest(command, args);
 
@@ -229,6 +234,18 @@ function buildAiConversationResume(parsedArgs) {
     });
   }
 
+  if (parsedArgs["t3-thread-id"]) {
+    const environmentId = parsedArgs["t3-environment-id"] || readT3EnvironmentId();
+    if (!environmentId) {
+      fail("--t3-thread-id needs --t3-environment-id <id> (or a local T3 Code data directory to read it from).");
+    }
+    conversationId = conversationId || parsedArgs["t3-thread-id"];
+    targets.push(...t3ResumeTargets(environmentId, parsedArgs["t3-thread-id"]));
+    parsedArgs["ai-label"] = parsedArgs["ai-label"] || "Open in T3";
+    parsedArgs["ai-fallback-instructions"] = parsedArgs["ai-fallback-instructions"]
+      || `Open T3 Code and go to the thread${parsedArgs["ai-title"] ? ` "${parsedArgs["ai-title"]}"` : ""}.`;
+  }
+
   if (parsedArgs["claude-session"]) {
     provider = provider || "claude-code";
     conversationId = conversationId || parsedArgs["claude-session"];
@@ -285,6 +302,21 @@ function buildAiConversationResume(parsedArgs) {
     targets: targets.length ? targets : undefined,
     fallbackInstructions
   });
+}
+
+// Resolves a native session id hosted by T3 Code into its thread id and title.
+async function resolveT3Session(parsedArgs) {
+  const thread = await lookupT3Thread(parsedArgs["t3-session"]);
+  if (!thread) {
+    fail("--t3-session did not match a T3 Code thread on this machine. Pass --t3-thread-id and --t3-environment-id instead, or drop the T3 flags.");
+  }
+  parsedArgs["t3-thread-id"] = parsedArgs["t3-thread-id"] || thread.threadId;
+  parsedArgs["t3-environment-id"] = parsedArgs["t3-environment-id"] || thread.environmentId;
+  parsedArgs["ai-title"] = parsedArgs["ai-title"] || thread.title;
+  parsedArgs["ai-provider"] = parsedArgs["ai-provider"] || thread.provider;
+  if (!parsedArgs.title) {
+    parsedArgs.title = thread.title;
+  }
 }
 
 function urlTarget(url, label, platforms) {

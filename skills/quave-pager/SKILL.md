@@ -144,6 +144,8 @@ AI resume CLI flags:
 
 - `--codex-thread-id <thread-id>`: creates Codex Android/web URL and macOS `codex://threads/<thread-id>` deeplink resume targets. In Codex Desktop, prefer `${CODEX_THREAD_ID}` when set. If the thread id is not known, do not invent one.
 - `--codex-deeplink codex://threads/<thread-id>`: explicit Codex app deeplink target.
+- `--t3-session <native-session-id>`: for agents running inside T3 Code. Pass `$CLAUDE_CODE_SESSION_ID` (Claude Code) or `$CODEX_THREAD_ID` (Codex). The CLI reads the local T3 Code database read-only, resolves the T3 thread, uses its title as the alarm title, and sends `t3code://threads/<environment-id>/<thread-id>` to macOS and Android plus `https://app.t3.codes/...` to iOS/web. Delegated child threads resolve to their root thread. Fails if the session is not a T3 thread; then omit the T3 flags.
+- `--t3-thread-id <thread-id>` / `--t3-environment-id <environment-id>`: the same T3 targets when the thread id is already known. The environment id defaults to `~/.t3/userdata/environment-id` (or `$T3CODE_HOME/userdata/environment-id`).
 - `--claude-session <session-id>`: creates a macOS copy-command target plus Android/iOS/web resume instructions using `claude --resume`.
 - `--cursor-session <session-id>`: creates a macOS copy-command target using `cursor-agent --resume`.
 - `--ai-cwd <path>`: attach the working directory to copy-command targets.
@@ -162,7 +164,26 @@ npx -y github:quavedev/pager-agent trigger \
   --codex-thread-id "${CODEX_THREAD_ID:-<thread-id>}"
 ```
 
-Codex currently has a known macOS deep link (`codex://threads/<thread-id>`). Claude Code and Cursor do not have a verified stable conversation deeplink in this package. `--claude-session` and `--cursor-session` provide a macOS copy-command target and an Android/iOS/web instruction target; use `--ai-cwd` so the instruction names the right workspace.
+## T3 Code
+
+T3 Code hosts Claude Code, Codex, and Cursor conversations. When an agent runs
+inside T3, page with the T3 thread instead of the provider session, so the alarm
+shows the thread title and **Resume AI conversation** opens that thread:
+
+```bash
+npx -y github:quavedev/pager-agent trigger \
+  --alarm-type critical \
+  --message "Waiting for your answer." \
+  --t3-session "${CLAUDE_CODE_SESSION_ID:-$CODEX_THREAD_ID}"
+```
+
+- macOS: Quave Pager opens `t3code://threads/<environment-id>/<thread-id>` in T3 Code desktop.
+- Android (Quave Pager 0.1.96+): opens the same link in the T3 Code Android app. If T3 was not already running, T3 may land on Home instead of the thread; open T3 once and tap Resume again. Older Android clients show the fallback instructions.
+- iOS/web: `https://app.t3.codes/<environment-id>/<thread-id>`, which needs T3 Connect access to the machine.
+
+For Claude Code hooks, install [`scripts/claude-code-hook.cjs`](../../scripts/claude-code-hook.cjs) (see `docs/claude-code-hooks.md`): it does this lookup automatically on `Notification` and `Stop`.
+
+Codex currently has a known macOS deep link (`codex://threads/<thread-id>`). Outside T3, Claude Code and Cursor do not have a verified stable conversation deeplink in this package. `--claude-session` and `--cursor-session` provide a macOS copy-command target and an Android/iOS/web instruction target; use `--ai-cwd` so the instruction names the right workspace.
 
 ## Verify delivery health
 
